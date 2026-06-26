@@ -1,4 +1,4 @@
-import os,warnings,logging
+import os, warnings, logging
 import sqlite3
 import json
 import chromadb
@@ -20,6 +20,7 @@ warnings.filterwarnings("ignore")
 logging.getLogger("streamlit").setLevel(logging.ERROR)
 load_dotenv()
 
+# 📂 Bulud mühitində 'data' qovluğunun təhlükəsiz şəkildə mövcudluğunu yoxlayırıq
 root_dir = os.path.join(os.getcwd(), 'data')
 if not os.path.exists(root_dir):
     os.makedirs(root_dir)
@@ -28,10 +29,12 @@ db_path = os.path.join(root_dir, 'memory.db')
 st.set_page_config(page_title="Faberlic Assistant", page_icon="🛍️")
 baza_yolu = os.path.join(root_dir, "chroma_db")
 excel_fayl_adi = 'Faberlic_Bazasi.xlsx'
+
 @st.cache_data 
 def load_excel_data():
     return pd.read_excel(excel_fayl_adi)
-df=load_excel_data()
+df = load_excel_data()
+
 @st.cache_resource
 def get_chroma_collection():
     embedding_model = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
@@ -42,31 +45,29 @@ collection = get_chroma_collection()
 baza_movcuddur = os.path.exists(baza_yolu) and len(os.listdir(baza_yolu)) > 0
     
 if not baza_movcuddur:
-            st.info("🔄 Vektor bazası tapılmadı. Excel faylı ilk dəfə emal edilir, zəhmət olmasa gözləyin...")
-            
-            documents = []
-            metadatas = []
-            ids = []
-            
-            for index, row in df.iterrows():
-                setir_metni = " | ".join([f"{col}: {val}" for col, val in row.items() if pd.notna(val)])
-                
-                if setir_metni.strip() == "":
-                    continue
-                
-                documents.append(setir_metni)
-                metadatas.append({"row_number": index + 1})
-                ids.append(f"id_{index}")
-            
-
-            if documents:
-                collection.add(
-                    documents=documents,
-                    metadatas=metadatas,
-                    ids=ids
-                )
-                st.success(f"✨ {len(documents)} sətir uğurla vektorlaşdırıldı və diskə qeyd olundu!")
+    st.info("🔄 Vektor bazası tapılmadı. Excel faylı ilk dəfə emal edilir, zəhmət olmasa gözləyin...")
+    
+    documents = []
+    metadatas = []
+    ids = []
+    
+    for index, row in df.iterrows():
+        setir_metni = " | ".join([f"{col}: {val}" for col, val in row.items() if pd.notna(val)])
         
+        if setir_metni.strip() == "":
+            continue
+        
+        documents.append(setir_metni)
+        metadatas.append({"row_number": index + 1})
+        ids.append(f"id_{index}")
+    
+    if documents:
+        collection.add(
+            documents=documents,
+            metadatas=metadatas,
+            ids=ids
+        )
+        st.success(f"✨ {len(documents)} sətir uğurla vektorlaşdırıldı və diskə qeyd olundu!")
 else:
     st.sidebar.success("📊 Lokal Faberlic Vektor Bazası aktivdir!")
 
@@ -74,8 +75,8 @@ class Gelivy:
     def __init__(self, user_uuid=None):
         self.user_uuid = user_uuid
         if "files" not in st.session_state:
-            st.session_state.files={}
-        self.api_key=st.secrets["API_KEY"]
+            st.session_state.files = {}
+        self.api_key = st.secrets["API_KEY"]
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -159,6 +160,7 @@ Uğur Strategiyan:
             handle_parsing_errors=True,
             max_iterations=3
         )
+
     @tool
     @staticmethod
     def get_available_images_info():
@@ -166,21 +168,20 @@ Uğur Strategiyan:
         Model hansı şəkli seçəcəyinə qərar vermək üçün bu alətdən istifadə etməlidir.
         """
         info_text = "Available images in the system:\n"
-        
-        for name , data in st.session_state.files.items():
+        for name, data in st.session_state.files.items():
             info_text += f"- Name: '{name}' | Description: {data}\n"
         return info_text
     
     @staticmethod
-    def describe_image_with_vision(images:List[str],prompt:str):
+    def describe_image_with_vision(images: List[str], prompt: str):
         try:
             st.write("Vision modeli yüklənir...")
-            result_text=""
-            info_text=""
+            result_text = ""
+            info_text = ""
             llm_vision = ChatGroq(
-            api_key=st.secrets["API_KEY"],
-            model="meta-llama/llama-4-scout-17b-16e-instruct",
-            temperature=0.5
+                api_key=st.secrets["API_KEY"],
+                model="meta-llama/llama-4-scout-17b-16e-instruct",
+                temperature=0.5
             )
             
             for img in images:
@@ -201,27 +202,17 @@ Uğur Strategiyan:
                     continue
                 b64 = base64.b64encode(image_bytes).decode("utf-8")
                 messages = [
-    {
-        "role": "user",
-        "content": [
-            {
-                "type": "text", 
-                "text": prompt
-            },
-            {
-                "type": "image_url",
-                "image_url": {
-                    "url": f"data:image/jpeg;base64,{b64}"
-                }
-            }
-        ]
-    }
-]
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": prompt},
+                            {"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{b64}"}}
+                        ]
+                    }
+                ]
         
-                response =llm_vision.invoke(
-                    input=messages
-                )
-                result_text=response.content.strip()
+                response = llm_vision.invoke(input=messages)
+                result_text = response.content.strip()
                 file_name = img.name if hasattr(img, "name") else str(img)
                 st.session_state.files[file_name] = result_text
                 info_text += f"Name: {file_name} | Description: {result_text}\n"
@@ -232,7 +223,7 @@ Uğur Strategiyan:
     @staticmethod
     def get_vision_tool():
         @tool
-        def image_analyzer_tool(images:List[str],prompt:List[str]) -> str:
+        def image_analyzer_tool(images: List[str], prompt: List[str]) -> str:
             """İstifadəçinin istəyinə görə verilmiş şəkli analiz edir.
         Args:
             image - FİLES lüğətindən istifadəçiyə lazım olan fayl və ya fayllar seçilməlidir.  
@@ -244,54 +235,52 @@ Uğur Strategiyan:
     @tool
     @staticmethod
     def generate_video(prompt: str) -> str:
-        """İstifadəçinin yüklədiyi şəkli və daxil etdiyi mətni (prompt) birləşdirərək animasiya yaradır.
-    
-    Bu funksiya başlanğıc nöqtəsi olaraq st.session_state daxilindəki şəkli əsas götürür. 
-    Giriş parametru olan 'prompt' dəyişəni isə şəkildəki obyektlərin necə hərəkət edəcəyini, 
-    fiziki dinamikanı, kadrda baş verəcək dəyişiklikləri və kamera hərəkətlərini (məs. yaxınlaşma, 
-    fırlanma) neyron şəbəkəsinə diktə etmək üçün istifadə olunur. Model bu mətni analiz edərək 
-    şəkil üzərində ardıcıl kadrlar (frames) generasiya edir və sonda onları MP4 videosuna çevirir."""
+        """İstifadəçinin yüklədiyi şəkli və daxil etdiyi mətni (prompt) birləşdirərək animasiya yaradır."""
         return ""
+
     def ask(self, question, collection=None, image_description=""):
-            try:
-                full_context = ""
-                if image_description:
-                    full_context += f"【ŞƏKLİNİN TƏSVİRİ:】\n{image_description}\n\n"
-                
-                if collection is not None:
-                    query_results = collection.query(query_texts=[question], n_results=3)
-                    if query_results and 'documents' in query_results and query_results['documents'] and query_results['documents'][0]:
-                        full_context += "【MƏLUMAT BAZASI KONTEKSİ:】\n" + "\n".join(query_results['documents'][0])
-                
-                if not full_context:
-                    full_context = 'Məlumat və ya aktiv şəkil yoxdur...'
-                
-                history = self.load_chat_history()
-                response = self.agent_executor.invoke({
-                    "input": question,
-                    "context": full_context,
-                    "chat_history": history
-                })
-                
-                history.append(HumanMessage(content=question))
-                history.append(AIMessage(content=response['output']))
-                self.save_chat_history(history)
+        try:
+            full_context = ""
+            if image_description:
+                full_context += f"【ŞƏKLİNİN TƏSVİRİ:】\n{image_description}\n\n"
+            
+            if collection is not None:
+                query_results = collection.query(query_texts=[question], n_results=3)
+                if query_results and 'documents' in query_results and query_results['documents'] and query_results['documents'][0]:
+                    full_context += "【MƏLUMAT BAZASI KONTEKSİ:】\n" + "\n".join(query_results['documents'][0])
+            
+            if not full_context:
+                full_context = 'Məlumat və ya aktiv şəkil yoxdur...'
+            
+            history = self.load_chat_history()
+            response = self.agent_executor.invoke({
+                "input": question,
+                "context": full_context,
+                "chat_history": history
+            })
+            
+            history.append(HumanMessage(content=question))
+            history.append(AIMessage(content=response['output']))
+            self.save_chat_history(history)
 
-                return response['output']
-            except Exception as e:
-                error_msg = str(e)
-                return f"Error: {error_msg}"
+            return response['output']
+        except Exception as e:
+            error_msg = str(e)
+            return f"Error: {error_msg}"
 
-cookies = st.context.cookies
-user_full_name = cookies.get("faberlic_user_name")
-user_uuid = cookies.get("faberlic_user_uuid")
+# 🌐 Streamlit Cloud uyğun daimi sessiya təyini (Kuki əvəzinə Query Parameters)
+user_full_name = st.query_params.get("faberlic_user_name")
+user_uuid = st.query_params.get("faberlic_user_uuid")
+
 if "bot" not in st.session_state:
-    st.session_state.bot=Gelivy(user_uuid=user_uuid)
-bot=st.session_state.bot
+    st.session_state.bot = Gelivy(user_uuid=user_uuid)
+bot = st.session_state.bot
 st.session_state.file_infos = "There is no information..."
+
 if 'messages' not in st.session_state:
     st.session_state.messages = []
 
+# 👤 Qeydiyyat durumu yoxlanılır
 if not user_full_name or not user_uuid:
     st.title("🛍️ GelivyAI Xoş Gəldiniz!")
     st.write("Sistemi istifadə etmək üçün zəhmət olmasa qeydiyyat formunu doldurun.")
@@ -311,28 +300,21 @@ if not user_full_name or not user_uuid:
                 tam_ad = f"{ad} {soyad}"
                 yeni_id = str(uuid.uuid4())[:8] 
                 
-                st.components.v1.html(f"""
-                    <script>
-                    document.cookie = "faberlic_user_name={tam_ad}; path=/; max-age=31536000;";
-                    document.cookie = "faberlic_user_uuid={yeni_id}; path=/; max-age=31536000;";
-                    window.parent.location.reload();
-                    </script>
-                """, height=0)
+                # Link parametrlərini yazırıq (Buludda dərhal işləyir və yadda qalır)
+                st.query_params["faberlic_user_name"] = tam_ad
+                st.query_params["faberlic_user_uuid"] = yeni_id
+                
                 st.success("Giriş edilir...")
+                st.rerun()
             else:
                 st.error("Zəhmət olmasa bütün xanaları doldurun və razılığı təsdiqləyin.")
 else:
+    # 💬 Əgər istifadəçi artıq daxil olubsa, əsas çat ekranı açılır
     st.sidebar.title(f"👤 {user_full_name}")
     st.sidebar.write(f"🆔 ID: {user_uuid}")
     
     if st.sidebar.button("🔴 Məni Unut (Çıxış)"):
-        st.components.v1.html("""
-            <script>
-            document.cookie = "faberlic_user_name=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
-            document.cookie = "faberlic_user_uuid=; path=/; expires=Thu, 01 Jan 1970 00:00:01 GMT;";
-            window.parent.location.reload();
-            </script>
-        """, height=0)
+        st.query_params.clear()  # Parametrləri təmizləyirik
         st.session_state.messages = []
         st.rerun()
 
@@ -380,6 +362,7 @@ else:
             st.session_state.files = {}
             st.session_state.image_cache = {} 
             st.session_state.file_infos = "There is no information..."
+
     if user_input := st.chat_input("Mesajınızı yazın..."):
         with st.chat_message("user", avatar='👨‍💻'):
             st.markdown(user_input)
@@ -391,9 +374,9 @@ else:
         with st.chat_message("assistant", avatar='🤖'):
             with st.spinner("Gelivy..."):
                 if st.session_state.file_infos:
-                    img_desc=st.session_state.get("file_infos")
+                    img_desc = st.session_state.get("file_infos")
                 else:
-                    img_desc=None
+                    img_desc = None
                 bot_response = bot.ask(question=user_input, collection=collection, image_description=img_desc)
                 
                 if "last_generated_video" in st.session_state:
