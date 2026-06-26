@@ -1,11 +1,9 @@
-import os,re,warnings,logging
-import itertools
+import os,warnings,logging
 import sqlite3
 import json
 import chromadb
 from chromadb.utils import embedding_functions
 import pandas as pd
-import requests
 import base64
 import streamlit as st
 from dotenv import load_dotenv
@@ -16,7 +14,7 @@ from langchain_classic.agents.tool_calling_agent.base import create_tool_calling
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.tools import tool
 import uuid
-from typing import List,Dict
+from typing import List
 
 warnings.filterwarnings("ignore")
 logging.getLogger("streamlit").setLevel(logging.ERROR)
@@ -32,8 +30,10 @@ db_path = os.path.join(root_dir, 'memory.db')
 st.set_page_config(page_title="Faberlic Assistant", page_icon="🛍️")
 baza_yolu = os.path.join(root_dir, "chroma_db")
 excel_fayl_adi = 'Faberlic_Bazasi.xlsx'
-excel_yolu = os.path.join(os.getcwd(), excel_fayl_adi)
-
+@st.cache_data 
+def load_excel_data():
+    return pd.read_excel(excel_fayl_adi)
+df=load_excel_data()
 @st.cache_resource
 def get_chroma_collection():
     embedding_model = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
@@ -44,9 +44,7 @@ collection = get_chroma_collection()
 baza_movcuddur = os.path.exists(baza_yolu) and len(os.listdir(baza_yolu)) > 0
     
 if not baza_movcuddur:
-        if os.path.exists(excel_yolu):
             st.info("🔄 Vektor bazası tapılmadı. Excel faylı ilk dəfə emal edilir, zəhmət olmasa gözləyin...")
-            df = pd.read_excel(excel_yolu)
             
             documents = []
             metadatas = []
@@ -70,8 +68,7 @@ if not baza_movcuddur:
                     ids=ids
                 )
                 st.success(f"✨ {len(documents)} sətir uğurla vektorlaşdırıldı və diskə qeyd olundu!")
-        else:
-            st.error(f"❌ '{excel_fayl_adi}' faylı cari qovluqda tapılmadı! Ünvan: {excel_yolu}")
+        
 else:
     st.sidebar.success("📊 Lokal Faberlic Vektor Bazası aktivdir!")
 

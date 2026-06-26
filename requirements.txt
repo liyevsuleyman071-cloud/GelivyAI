@@ -1,0 +1,8 @@
+streamlit
+pandas
+openpyxl
+chromadb
+python-dotenv
+langchain-groq
+langchain-core
+langchain-classic
