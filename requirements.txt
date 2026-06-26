@@ -9,3 +9,4 @@ langchain-classic
 sentence-transformers
 torch
 torchvision
+psycopg2-binary
