@@ -21,7 +21,8 @@ logging.getLogger("streamlit").setLevel(logging.ERROR)
 load_dotenv()
 
 root_dir = os.path.join(os.getcwd(), 'data')
-
+if not os.path.exists(root_dir):
+    os.makedirs(root_dir)
 db_path = os.path.join(root_dir, 'memory.db')
 
 st.set_page_config(page_title="Faberlic Assistant", page_icon="🛍️")
