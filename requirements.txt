@@ -6,3 +6,5 @@ python-dotenv
 langchain-groq
 langchain-core
 langchain-classic
+sentence-transformers
+torch
