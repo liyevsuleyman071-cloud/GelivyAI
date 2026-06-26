@@ -21,8 +21,6 @@ logging.getLogger("streamlit").setLevel(logging.ERROR)
 load_dotenv()
 
 root_dir = os.path.join(os.getcwd(), 'data')
-if not os.path.exists(root_dir):
-    os.makedirs(root_dir)
 
 db_path = os.path.join(root_dir, 'memory.db')
 
@@ -76,7 +74,7 @@ class Gelivy:
         self.user_uuid = user_uuid
         if "files" not in st.session_state:
             st.session_state.files={}
-        self.api_key=os.getenv("API_KEYS")
+        self.api_key=st.secrets["API_KEY"]
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
             cursor.execute("""
@@ -179,7 +177,7 @@ Uğur Strategiyan:
             result_text=""
             info_text=""
             llm_vision = ChatGroq(
-            api_key=os.getenv("API_KEYS"),
+            api_key=st.secrets["API_KEY"],
             model="meta-llama/llama-4-scout-17b-16e-instruct",
             temperature=0.5
             )
@@ -188,7 +186,6 @@ Uğur Strategiyan:
                 if hasattr(img, "name"):
                     file_name = img.name
                     image_bytes = img.getvalue()
-                # Variant B: Əgər Agent alətdən sadəcə faylın adını (string) göndəribsə
                 elif isinstance(img, str):
                     file_name = img
                     if "image_cache" in st.session_state and file_name in st.session_state.image_cache:
