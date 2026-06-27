@@ -75,17 +75,17 @@ class Gelivy:
         if "files" not in st.session_state:
             st.session_state.files = {}
         self.api_key = st.secrets["API_KEY"]
-        with psycopg2.connect(st.secrets["DB_URL"]) as conn:
-            cursor = conn.cursor()
-            cursor.execute("""
-                CREATE TABLE IF NOT EXISTS history (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    user_uuid TEXT UNIQUE,
-                    messages TEXT,
-                    tarix DATETIME DEFAULT CURRENT_TIMESTAMP
-                )
-            """)
-            conn.commit()
+        with psycopg2.connect(st.secrets["DB_URL"]) as conn:            
+            with conn.cursor() as cursor:                                      
+                cursor.execute("""                                          
+                    CREATE TABLE IF NOT EXISTS history (                    
+                        id SERIAL PRIMARY KEY,               
+                        user_uuid TEXT UNIQUE,                              
+                        messages TEXT,
+                        tarix TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )                                                      
+                """)                                                        
+                conn.commit()
         self.setup_agent()
 
     def load_chat_history(self):
