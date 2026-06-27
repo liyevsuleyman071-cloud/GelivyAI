@@ -18,57 +18,9 @@ from typing import List
 
 warnings.filterwarnings("ignore")
 logging.getLogger("streamlit").setLevel(logging.ERROR)
-load_dotenv()
-root_dir = os.path.join(os.getcwd(), 'data')
-if not os.path.exists(root_dir):
-    os.makedirs(root_dir)
-db_path = os.path.join(root_dir, 'memory.db')
 
 st.set_page_config(page_title="Faberlic Assistant", page_icon="🛍️")
-baza_yolu = os.path.join(root_dir, "chroma_db")
-excel_fayl_adi = 'Faberlic_Bazasi.xlsx'
-
-@st.cache_data 
-def load_excel_data():
-    return pd.read_excel(excel_fayl_adi)
-df = load_excel_data()
-
-@st.cache_resource
-def get_chroma_collection():
-    embedding_model = embedding_functions.SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
-    client = chromadb.PersistentClient(path=baza_yolu)
-    return client.get_or_create_collection(name='data_db', embedding_function=embedding_model)
-
-collection = get_chroma_collection()
-baza_movcuddur = os.path.exists(baza_yolu) and len(os.listdir(baza_yolu)) > 0
-    
-if not baza_movcuddur:
-    st.info("🔄 Vektor bazası tapılmadı. Excel faylı ilk dəfə emal edilir, zəhmət olmasa gözləyin...")
-    
-    documents = []
-    metadatas = []
-    ids = []
-    
-    for index, row in df.iterrows():
-        setir_metni = " | ".join([f"{col}: {val}" for col, val in row.items() if pd.notna(val)])
-        
-        if setir_metni.strip() == "":
-            continue
-        
-        documents.append(setir_metni)
-        metadatas.append({"row_number": index + 1})
-        ids.append(f"id_{index}")
-    
-    if documents:
-        collection.add(
-            documents=documents,
-            metadatas=metadatas,
-            ids=ids
-        )
-        st.success(f"✨ {len(documents)} sətir uğurla vektorlaşdırıldı və diskə qeyd olundu!")
-else:
-    st.sidebar.success("📊 Lokal Faberlic Vektor Bazası aktivdir!")
-
+collection=None
 class Gelivy:
     def __init__(self, user_uuid=None):
         self.user_uuid = user_uuid
@@ -84,7 +36,14 @@ class Gelivy:
                         messages TEXT,
                         tarix TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                     )                                                      
-                """)                                                        
+                """)   
+                cursor.execute("""                                          
+                    CREATE TABLE IF NOT EXISTS rag_data (                    
+                        id SERIAL PRIMARY KEY,               
+                        content TEXT,                              
+                        tarix TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    )                                                      
+                """)
                 conn.commit()
         self.setup_agent()
 
@@ -246,10 +205,19 @@ Uğur Strategiyan:
             if image_description:
                 full_context += f"【ŞƏKLİNİN TƏSVİRİ:】\n{image_description}\n\n"
             
-            if collection is not None:
-                query_results = collection.query(query_texts=[question], n_results=3)
-                if query_results and 'documents' in query_results and query_results['documents'] and query_results['documents'][0]:
-                    full_context += "【MƏLUMAT BAZASI KONTEKSİ:】\n" + "\n".join(query_results['documents'][0])
+            with psycopg2.connect(st.secrets["DB_URL"]) as conn:
+                with conn.cursor() as cursor:
+                    search_query = f"%{question}%" 
+                    cursor.execute(
+                        "SELECT content FROM rag_data WHERE content ILIKE %s LIMIT 5", 
+                        (search_query,)
+                    )
+                    rows = cursor.fetchall()
+                    
+                    if rows:
+                        full_context += "【MƏLUMAT BAZASI KONTEKSİ:】\n"
+                        for row in rows:
+                            full_context += f"{row[0]}\n"
             
             if not full_context:
                 full_context = 'Məlumat və ya aktiv şəkil yoxdur...'
