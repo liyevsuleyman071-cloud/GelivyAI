@@ -201,23 +201,46 @@ Uğur Strategiyan:
             full_context = ""
             if image_description:
                 full_context += f"【ŞƏKLİNİN TƏSVİRİ:】\n{image_description}\n\n"
-            
+        
+        # Axtarış sözünü SQL (ILIKE) formatına salırıq
+            search_query = f"%{question}%" 
+        
             with psycopg2.connect(st.secrets["DB_URL"]) as conn:
                 with conn.cursor() as cursor:
-                    search_query = f"%{question}%" 
                     cursor.execute(
-                        "SELECT content FROM rag_data WHERE content ILIKE %s LIMIT 5", 
-                        (search_query,)
-                    )
-                    rows = cursor.fetchall()
-                    
-                    if rows:
+                    "SELECT content FROM rag_data WHERE content ILIKE %s LIMIT 5", 
+                    (search_query,)
+                )
+                    rag_rows = cursor.fetchall()
+                
+                    if rag_rows:
                         full_context += "【MƏLUMAT BAZASI KONTEKSİ:】\n"
-                        for row in rows:
+                        for row in rag_rows:
                             full_context += f"{row[0]}\n"
-            
-            if not full_context:
-                full_context = 'Məlumat və ya aktiv şəkil yoxdur...'
+                        full_context += "\n"
+
+                    product_sql = """
+                    SELECT artikul, mehsul_adi, aciqlama, ilkin_qiymet, kataloq_qiymeti, anbar_qiymeti, saticilara_ozel_endirimli_qiymet, mehsul_bali 
+                    FROM faberlic_mehsullar 
+                    WHERE artikul ILIKE %s OR mehsul_adi ILIKE %s 
+                    LIMIT 3
+                """
+                    cursor.execute(product_sql, (search_query, search_query))
+                    product_rows = cursor.fetchall()
+                    if product_rows:
+                        full_context += "【TAPILAN FABERLIC MƏHSULLARI:】\n"
+                        for row in product_rows:
+                            artikul, ad, aciqlama, ilkin, kataloq, anbar, promo, bal = row
+                            full_context += f"- Məhsul: {ad} (Artikul: {artikul})\n"
+                            full_context += f"  Açıqlama: {aciqlama}\n"
+                            if ilkin: full_context += f"  İlkin Qiymət (Üstü xəttli): {ilkin} ₼\n"
+                            if kataloq: full_context += f"  Kataloq Qiyməti: {kataloq} ₼\n"
+                            if anbar: full_context += f"  Anbar Qiyməti: {anbar} ₼\n"
+                            if promo: full_context += f"  Aksiya/Satıcı Qiyməti: {promo} ₼\n"
+                            if bal: full_context += f"  Qazanılacaq Bal: {bal}\n"
+                            full_context += "-----------------------------------\n"
+            if not full_context.strip() or full_context == f"【ŞƏKLİNİN TƏSVİRİ:】\n{image_description}\n\n":
+                full_context += "Məlumat bazasında bu məhsula və ya suala uyğun aktiv məlumat tapılmadı..."
             
             history = self.load_chat_history()
             response = self.agent_executor.invoke({
