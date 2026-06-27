@@ -9,8 +9,12 @@ from langchain_classic.agents.agent import AgentExecutor
 from langchain_classic.agents.tool_calling_agent.base import create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.tools import tool
-import uuid
 from typing import List
+import random
+import smtplib
+from email.mime.text import MIMEText
+from streamlit_js_eval import streamlit_js_eval
+
 
 warnings.filterwarnings("ignore")
 logging.getLogger("streamlit").setLevel(logging.ERROR)
@@ -270,6 +274,49 @@ Uğur Strategiyan:
         
         except Exception as e:
             return f"Error: {str(e)}"
+
+user_agent = streamlit_js_eval(js_expressions="navigator.userAgent", key="UA")
+screen_width = streamlit_js_eval(js_expressions="screen.width", key="SW")
+
+if not user_agent or not screen_width:
+    st.info("Sistem yüklənir, zəhmət olmasa gözləyin...")
+    st.stop()
+
+cihaz_iz = f"{user_agent}_{screen_width}"
+
+def email_kod_gonder(alici_email, kod):
+    # ⚠️ Gmail daxilindən aldığın 16 rəqəmli App Password-u bura yazmalısan
+    GÖNDƏRƏN_EMAIL = st.secrets.get("GÖNDƏRƏN_EMAIL", "sənin_gelivy_poçtun@gmail.com")
+    GÖNDƏRƏN_ŞİFRƏ = st.secrets.get("GÖNDƏRƏN_ŞİFRƏ", "gmail_alınan_16_rəqəmli_app_password") 
+
+    SÖZÜMÜZ = f"Gelivy AI qeydiyyat təsdiq kodunuz: {kod}\n\nZəhmət olmasa bu kodu heç kimlə paylaşmayın."
+    msg = MIMEText(SÖZÜMÜZ, 'plain', 'utf-8')
+    msg['Subject'] = 'Gelivy AI - OTP Doğrulama'
+    msg['From'] = GÖNDƏRƏN_EMAIL
+    msg['To'] = alici_email
+
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            server.login(GÖNDƏRƏN_EMAIL, GÖNDƏRƏN_ŞİFRƏ)
+            server.sendmail(GÖNDƏRƏN_EMAIL, alici_email, msg.as_string())
+        return True
+    except Exception:
+        return False
+
+with psycopg2.connect(st.secrets["DB_URL"]) as conn:
+    with conn.cursor() as cursor:
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS istifadeciler (
+                id SERIAL PRIMARY KEY,
+                ad_soyad TEXT,
+                email TEXT UNIQUE,
+                sifre TEXT,
+                cihaz_hash TEXT,
+                tarix TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        """)
+        conn.commit()
+
 user_full_name = st.query_params.get("faberlic_user_name")
 user_uuid = st.query_params.get("faberlic_user_uuid")
 
@@ -281,41 +328,139 @@ st.session_state.file_infos = "There is no information..."
 if 'messages' not in st.session_state:
     st.session_state.messages = []
 
-# 👤 Qeydiyyat durumu yoxlanılır
+
+if "otp_kodu" not in st.session_state: st.session_state.otp_kodu = None
+if "otp_gonderildi" not in st.session_state: st.session_state.otp_gonderildi = False
+if "mveqqeti_qeydiyyat_data" not in st.session_state: st.session_state.mveqqeti_qeydiyyat_data = {}
+
 if not user_full_name or not user_uuid:
     st.title("🛍️ GelivyAI Xoş Gəldiniz!")
-    st.write("Sistemi istifadə etmək üçün zəhmət olmasa qeydiyyat formunu doldurun.")
+    st.write("Sistemi istifadə etmək üçün daxil olun və ya qeydiyyatdan keçin.")
 
-    with st.form("qeydiyyat_formu"):
-        col1, col2 = st.columns(2)
-        with col1:
-            ad = st.text_input("Adınız", placeholder="Məs: Orxan")
-        with col2:
-            soyad = st.text_input("Soyadınız", placeholder="Məs: Əliyev")
-        raziliq = st.checkbox("Məlumatlarımın sistemdə saxlanılmasına razıyam.")
-        
-        submit_button = st.form_submit_button("Sistemi Başlat 🚀")
+    tab_giris, tab_qeydiyyat = st.tabs(["🔐 Giriş Et", "📝 Qeydiyyat Ol"])
 
-        if submit_button:
-            if ad and soyad and raziliq:
-                tam_ad = f"{ad} {soyad}"
-                yeni_id = str(uuid.uuid4())[:8] 
-                
-                # Link parametrlərini yazırıq (Buludda dərhal işləyir və yadda qalır)
-                st.query_params["faberlic_user_name"] = tam_ad
-                st.query_params["faberlic_user_uuid"] = yeni_id
-                
-                st.success("Giriş edilir...")
-                st.rerun()
+    with tab_giris:
+        with st.form("giris_formu"):
+            st.subheader("Hesabınıza Giriş Edin")
+            giris_email = st.text_input("E-poçt ünvanınız", key="g_email").strip().lower()
+            giris_sifre = st.text_input("Şifrəniz", type="password", key="g_sifre")
+            giris_submit = st.form_submit_button("Giriş Et 🚀")
+            
+            if giris_submit:
+                if giris_email and giris_sifre:
+                    with psycopg2.connect(st.secrets["DB_URL"]) as conn:
+                        with conn.cursor() as cursor:
+                            cursor.execute(
+                                "SELECT ad_soyad, id FROM istifadeciler WHERE email = %s AND sifre = %s",
+                                (giris_email, giris_sifre)
+                            )
+                            user = cursor.fetchone()
+                    
+                    if user:
+                        st.query_params["faberlic_user_name"] = user[0]
+                        st.query_params["faberlic_user_uuid"] = str(user[1])
+                        st.success(f"🎉 Xoş gəldiniz, {user[0]}! Giriş edilir...")
+                        st.rerun()
+                    else:
+                        st.error("❌ E-poçt və ya şifrə yanlışdır!")
+                else:
+                    st.error("Zəhmət olmasa bütün sahələri doldurun.")
+
+    with tab_qeydiyyat:
+        if not st.session_state.otp_gonderildi:
+            with psycopg2.connect(st.secrets["DB_URL"]) as conn:
+                with conn.cursor() as cursor:
+                    cursor.execute("SELECT ad_soyad FROM istifadeciler WHERE cihaz_hash = %s", (cihaz_iz,))
+                    cihaz_varmi = cursor.fetchone()
+                    
+            if cihaz_varmi:
+                st.error(f"⚠️ Bu cihazdan artıq bir hesab ({cihaz_varmi[0]}) qeydiyyatdan keçib. İkinci hesaba icazə verilmir!")
             else:
-                st.error("Zəhmət olmasa bütün xanaları doldurun və razılığı təsdiqləyin.")
+                with st.form("qeydiyyat_formu"):
+                    st.subheader("Yeni Hesab Yaradın")
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        q_ad = st.text_input("Adınız", placeholder="Məs: Orxan")
+                    with col2:
+                        q_soyad = st.text_input("Soyadınız", placeholder="Məs: Əliyev")
+                    
+                    q_email = st.text_input("E-poçt (Gmail, Mail.ru və s.)").strip().lower()
+                    q_sifre = st.text_input("Şifrə təyin edin", type="password")
+                    q_sifre_tekrar = st.text_input("Şifrəni yenidən yazın", type="password")
+                    raziliq = st.checkbox("Məlumatlarımın sistemdə saxlanılmasına razıyam.", key="q_raziliq")
+                    
+                    kod_gonder_btn = st.form_submit_button("Təsdiq Kodunu Gönder ✉️")
+                    
+                    if kod_gonder_btn:
+                        if q_ad and q_soyad and q_email and q_sifre and q_sifre_tekrar and raziliq:
+                            if q_sifre != q_sifre_tekrar:
+                                st.error("❌ Daxil etdiyiniz şifrələr üst-üstə düşmür!")
+                            else:
+                                # E-poçtun dublikat olub-olmadığını yoxlayırıq
+                                with psycopg2.connect(st.secrets["DB_URL"]) as conn:
+                                    with conn.cursor() as cursor:
+                                        cursor.execute("SELECT id FROM istifadeciler WHERE email = %s", (q_email,))
+                                        email_varmi = cursor.fetchone()
+                                        
+                                if email_varmi:
+                                    st.error("❌ Bu e-poçt ünvanı artıq qeydiyyatdan keçib!")
+                                else:
+                                    # Kod formalaşdırılır və göndərilir
+                                    random_otp = str(random.randint(100000, 999999))
+                                    st.session_state.otp_kodu = random_otp
+                                    st.session_state.mveqqeti_qeydiyyat_data = {
+                                        "ad_soyad": f"{q_ad} {q_soyad}",
+                                        "email": q_email,
+                                        "sifre": q_sifre
+                                    }
+                                    
+                                    with st.spinner("Təsdiq kodu poçtunuza göndərilir..."):
+                                        if email_kod_gonder(q_email, random_otp):
+                                            st.session_state.otp_gonderildi = True
+                                            st.rerun()
+                                        else:
+                                            st.error("Kodu göndərmək mümkün olmadı. E-poçtu düzgün yazdığınızdan əmin olun.")
+                        else:
+                            st.error("Zəhmət olmasa bütün xanaları doldurun və razılığı təsdiqləyin.")
+        else:
+            st.warning(f"📩 {st.session_state.mveqqeti_qeydiyyat_data['email']} ünvanına 6 rəqəmli kod göndərildi.")
+            with st.form("otp_yoxlama_formu"):
+                daxil_edilen_otp = st.text_input("Kodu daxil edin", type="password")
+                onayla_btn = st.form_submit_button("Qeydiyyatı Tamamla və Giriş Et ✅")
+                
+                if onayla_btn:
+                    if daxil_edilen_otp == st.session_state.otp_kodu:
+                        data = st.session_state.mveqqeti_qeydiyyat_data
+                        with psycopg2.connect(st.secrets["DB_URL"]) as conn:
+                            with conn.cursor() as cursor:
+                                cursor.execute(
+                                    "INSERT INTO istifadeciler (ad_soyad, email, sifre, cihaz_hash) VALUES (%s, %s, %s, %s) RETURNING id",
+                                    (data["ad_soyad"], data["email"], data["sifre"], cihaz_iz)
+                                )
+                                yeni_user_id = cursor.fetchone()[0]
+                                conn.commit()
+                        
+                        st.query_params["faberlic_user_name"] = data["ad_soyad"]
+                        st.query_params["faberlic_user_uuid"] = str(yeni_user_id)
+                        
+                        st.session_state.otp_gonderildi = False
+                        st.session_state.otp_kodu = None
+                        
+                        st.success("🎉 Qeydiyyatınız uğurla tamamlandı!")
+                        st.rerun()
+                    else:
+                        st.error("❌ Yanlış OTP kod daxil etdiniz.")
+                        
+            if st.button("⬅️ Geri qayıt və məlumatları düzəlt"):
+                st.session_state.otp_gonderildi = False
+                st.rerun()
+
 else:
-    # 💬 Əgər istifadəçi artıq daxil olubsa, əsas çat ekranı açılır
     st.sidebar.title(f"👤 {user_full_name}")
     st.sidebar.write(f"🆔 ID: {user_uuid}")
     
     if st.sidebar.button("🔴 Məni Unut (Çıxış)"):
-        st.query_params.clear()  # Parametrləri təmizləyirik
+        st.query_params.clear()  
         st.session_state.messages = []
         st.rerun()
 
