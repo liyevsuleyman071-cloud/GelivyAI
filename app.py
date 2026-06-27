@@ -92,9 +92,9 @@ class Gelivy:
         if not self.user_uuid:
             return []
         with psycopg2.connect(st.secrets["DB_URL"]) as conn:
-            cursor = conn.cursor()
-            cursor.execute("SELECT messages FROM history WHERE user_uuid = ?", (self.user_uuid,))
-            row = cursor.fetchone()
+            with conn.cursor() as cursor:
+                cursor.execute("SELECT messages FROM history WHERE user_uuid = %s", (self.user_uuid,))
+                row = cursor.fetchone()
 
         langchain_messages = []
         if row and row[0]:
@@ -117,16 +117,20 @@ class Gelivy:
                 serializable_messages.append({"type": "ai", "content": msg.content})
 
         with psycopg2.connect(st.secrets["DB_URL"]) as conn:
-            cursor = conn.cursor()
-            cursor.execute("INSERT OR REPLACE INTO history (user_uuid, messages) VALUES (?, ?)", 
-                            (self.user_uuid, json.dumps(serializable_messages)))
-            conn.commit()
+            with conn.cursor() as cursor:
+                cursor.execute("""
+                    INSERT INTO history (user_uuid, messages) 
+                    VALUES (%s, %s)
+                    ON CONFLICT (user_uuid) 
+                    DO UPDATE SET messages = EXCLUDED.messages
+                """, (self.user_uuid, json.dumps(serializable_messages)))
+                conn.commit()
     
     def setup_agent(self):
         self.llm = ChatGroq(
             api_key=self.api_key,
             model="openai/gpt-oss-120b",
-            temperature=0.5,
+            temperature=0.3,
             max_retries=3
         )
         
