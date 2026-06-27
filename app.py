@@ -1,5 +1,5 @@
 import os, warnings, logging
-import sqlite3
+import psycopg2
 import json
 import chromadb
 from chromadb.utils import embedding_functions
@@ -19,8 +19,6 @@ from typing import List
 warnings.filterwarnings("ignore")
 logging.getLogger("streamlit").setLevel(logging.ERROR)
 load_dotenv()
-
-# 📂 Bulud mühitində 'data' qovluğunun təhlükəsiz şəkildə mövcudluğunu yoxlayırıq
 root_dir = os.path.join(os.getcwd(), 'data')
 if not os.path.exists(root_dir):
     os.makedirs(root_dir)
@@ -77,7 +75,7 @@ class Gelivy:
         if "files" not in st.session_state:
             st.session_state.files = {}
         self.api_key = st.secrets["API_KEY"]
-        with sqlite3.connect(db_path) as conn:
+        with psycopg2.connect(st.secrets["DB_URL"]) as conn:
             cursor = conn.cursor()
             cursor.execute("""
                 CREATE TABLE IF NOT EXISTS history (
@@ -93,7 +91,7 @@ class Gelivy:
     def load_chat_history(self):
         if not self.user_uuid:
             return []
-        with sqlite3.connect(db_path) as conn:
+        with psycopg2.connect(st.secrets["DB_URL"]) as conn:
             cursor = conn.cursor()
             cursor.execute("SELECT messages FROM history WHERE user_uuid = ?", (self.user_uuid,))
             row = cursor.fetchone()
@@ -118,7 +116,7 @@ class Gelivy:
             elif isinstance(msg, AIMessage):
                 serializable_messages.append({"type": "ai", "content": msg.content})
 
-        with sqlite3.connect(db_path) as conn:
+        with psycopg2.connect(st.secrets["DB_URL"]) as conn:
             cursor = conn.cursor()
             cursor.execute("INSERT OR REPLACE INTO history (user_uuid, messages) VALUES (?, ?)", 
                             (self.user_uuid, json.dumps(serializable_messages)))
@@ -181,7 +179,7 @@ Uğur Strategiyan:
             llm_vision = ChatGroq(
                 api_key=st.secrets["API_KEY"],
                 model="meta-llama/llama-4-scout-17b-16e-instruct",
-                temperature=0.5
+                temperature=0.3
             )
             
             for img in images:
