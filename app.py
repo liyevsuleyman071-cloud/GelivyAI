@@ -14,6 +14,7 @@ import random
 import smtplib
 from email.mime.text import MIMEText
 from streamlit_js_eval import streamlit_js_eval
+import uuid
 
 
 warnings.filterwarnings("ignore")
@@ -264,7 +265,6 @@ Uğur Strategiyan:
                 "chat_history": history
             })
         
-            # Keçmişi yeniləyirik
             from langchain_core.messages import HumanMessage, AIMessage
             history.append(HumanMessage(content=question))
             history.append(AIMessage(content=response['output']))
@@ -278,14 +278,12 @@ Uğur Strategiyan:
 user_agent = streamlit_js_eval(js_expressions="navigator.userAgent", key="UA")
 screen_width = streamlit_js_eval(js_expressions="screen.width", key="SW")
 
-# Məlumatlar gələnə qədər gözləyirik lakin st.stop() istifadə etmirik ki, vizual bloklanmasın
 if not user_agent or not screen_width:
     st.info("Sistem cihazınızı identifikasiya edir, zəhmət olmasa gözləyin...")
     cihaz_iz = "unknown_device"
 else:
     cihaz_iz = f"{user_agent}_{screen_width}"
 
-# --- 🚀 PULSUZ E-POÇT GÖNDƏRMƏ FUNKSİYASI ---
 def email_kod_gonder(alici_email, kod):
     GÖNDƏRƏN_EMAIL = st.secrets.get("GÖNDƏRƏN_EMAIL", "gelivyai@gmail.com")
     GÖNDƏRƏN_ŞİFRƏ = st.secrets.get("GÖNDƏRƏN_ŞİFRƏ", "cztb exil eopc eaaz") 
@@ -309,7 +307,7 @@ with psycopg2.connect(st.secrets["DB_URL"]) as conn:
     with conn.cursor() as cursor:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS istifadeciler (
-                id SERIAL PRIMARY KEY,
+                id TEXT,
                 ad_soyad TEXT,
                 email TEXT UNIQUE,
                 sifre TEXT,
@@ -331,16 +329,12 @@ st.session_state.file_infos = "There is no information..."
 if 'messages' not in st.session_state:
     st.session_state.messages = []
 
-# --- 📱 OTP və Müvəqqəti Session Yaddaşları ---
 if "otp_kodu" not in st.session_state: st.session_state.otp_kodu = None
 if "otp_gonderildi" not in st.session_state: st.session_state.otp_gonderildi = False
 if "mveqqeti_qeydiyyat_data" not in st.session_state: st.session_state.mveqqeti_qeydiyyat_data = {}
 
-# 👤 Giriş/Qeydiyyat Ekranı Kontrolu
 if not user_full_name or not user_uuid:
-    st.title("🛍️ GelivyAI Xoş Gəldiniz!")
-    
-    # Giriş və Qeydiyyat Tabları
+    st.title("🛍️ GelivyAI-a Xoş Gəldiniz!")
     tab_giris, tab_qeydiyyat = st.tabs(["🔐 Giriş Et", "📝 Qeydiyyat Ol"])
 
     with tab_giris:
@@ -395,17 +389,14 @@ if not user_full_name or not user_uuid:
                         if q_sifre != q_sifre_tekrar:
                             st.error("❌ Daxil etdiyiniz şifrələr üst-üstə düşmür!")
                         else:
-                            # 🚨 Təhlükəsizlik yoxlamaları
                             with psycopg2.connect(st.secrets["DB_URL"]) as conn:
                                 with conn.cursor() as cursor:
-                                    # Yoxlama A: Bu cihazdan artıq qeydiyyat varmi? (Yalnız unikal cihazlar üçün)
                                     if cihaz_iz != "unknown_device":
                                         cursor.execute("SELECT ad_soyad FROM istifadeciler WHERE cihaz_hash = %s", (cihaz_iz,))
                                         cihaz_varmi = cursor.fetchone()
                                     else:
                                         cihaz_varmi = None
                                         
-                                    # Yoxlama B: Bu e-poçt artıq istifadə olunubmu?
                                     cursor.execute("SELECT id FROM istifadeciler WHERE email = %s", (q_email,))
                                     email_varmi = cursor.fetchone()
                             
@@ -431,7 +422,6 @@ if not user_full_name or not user_uuid:
                     else:
                         st.error("Zəhmət olmasa bütün xanaları doldurun və razılığı təsdiqləyin.")
         else:
-            # OTP daxil etmə forması
             st.warning(f"📩 {st.session_state.mveqqeti_qeydiyyat_data['email']} ünvanına 6 rəqəmli kod göndərildi.")
             with st.form("otp_yoxlama_formu"):
                 daxil_edilen_otp = st.text_input("Kodu daxil edin", type="password")
@@ -440,22 +430,23 @@ if not user_full_name or not user_uuid:
                 if onayla_btn:
                     if daxil_edilen_otp == st.session_state.otp_kodu:
                         data = st.session_state.mveqqeti_qeydiyyat_data
+    
+                        istifadeci_unikal_id = str(uuid.uuid4())[:8] 
+    
                         try:
                             with psycopg2.connect(st.secrets["DB_URL"]) as conn:
                                 with conn.cursor() as cursor:
                                     cursor.execute(
-                                        "INSERT INTO istifadeciler (ad_soyad, email, sifre, cihaz_hash) VALUES (%s, %s, %s, %s) RETURNING id",
-                                        (data["ad_soyad"], data["email"], data["sifre"], cihaz_iz)
-                                    )
-                                    yeni_user_id = cursor.fetchone()[0]
+                    "INSERT INTO istifadeciler (id, ad_soyad, email, sifre, cihaz_hash) VALUES (%s, %s, %s, %s, %s)",
+                    (istifadeci_unikal_id, data["ad_soyad"], data["email"], data["sifre"], cihaz_iz)
+                )
                                     conn.commit()
-                            
                             st.query_params["faberlic_user_name"] = data["ad_soyad"]
-                            st.query_params["faberlic_user_uuid"] = str(yeni_user_id)
-                            
+                            st.query_params["faberlic_user_uuid"] = istifadeci_unikal_id
+        
                             st.session_state.otp_gonderildi = False
                             st.session_state.otp_kodu = None
-                            
+        
                             st.success("🎉 Qeydiyyatınız uğurla tamamlandı!")
                             st.rerun()
                         except Exception as e:
