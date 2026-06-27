@@ -1,19 +1,15 @@
 import os, warnings, logging
 import psycopg2
 import json
-import chromadb
-from chromadb.utils import embedding_functions
-import pandas as pd
 import base64
 import streamlit as st
-from dotenv import load_dotenv
 from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_classic.agents.agent import AgentExecutor
 from langchain_classic.agents.tool_calling_agent.base import create_tool_calling_agent
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.tools import tool
-import uuid
+import uuid,csv
 from typing import List
 
 warnings.filterwarnings("ignore")
@@ -21,6 +17,52 @@ logging.getLogger("streamlit").setLevel(logging.ERROR)
 
 st.set_page_config(page_title="Faberlic Assistant", page_icon="🛍️")
 collection=None
+yuklenen_fayl=os.path.join(os.getcwd(),"faberlic.csv")
+fayl_metni = yuklenen_fayl.getvalue().decode("utf-8-sig").splitlines()
+reader = csv.DictReader(fayl_metni)
+with psycopg2.connect(st.secrets["DB_URL"]) as conn:
+    with conn.cursor() as cursor:
+        cursor.execute("""
+                            CREATE TABLE IF NOT EXISTS faberlic_mehsullar (
+                                id SERIAL PRIMARY KEY,
+                                artikul TEXT,
+                                mehsul_adi TEXT,
+                                aciqlama TEXT,
+                                ilkin_qiymet NUMERIC,
+                                kataloq_qiymeti NUMERIC,
+                                anbar_qiymeti NUMERIC,
+                                saticilara_ozel_endirimli_qiymet NUMERIC,
+                                mehsul_bali NUMERIC,
+                                yenilenme_tarixi TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                            );
+                        """)
+        sql = """
+                            INSERT INTO faberlic_mehsullar 
+                            (artikul, mehsul_adi, aciqlama, ilkin_qiymet, kataloq_qiymeti, anbar_qiymeti, saticilara_ozel_endirimli_qiymet, mehsul_bali)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s);
+                        """
+                        
+        ugurlu_say = 0
+        for row in reader:
+                            def temizle(deyer):
+                                if not deyer: return None
+                                deyer = deyer.replace("₼", "").replace("Aksiya üzrə", "").strip().replace(",", ".")
+                                try: return float(deyer)
+                                except ValueError: return None
+                            data = (
+                                row.get("artikul", "").strip(),
+                                row.get("mehsul_adi", "").strip(),
+                                row.get("aciqlama", "").strip(),
+                                temizle(row.get("ilkin_qiymet")),
+                                temizle(row.get("kataloq_qiymeti")),
+                                temizle(row.get("anbar_qiymeti")),
+                                temizle(row.get("saticilara_ozel_endirimli_qiymet")),
+                                temizle(row.get("mehsul_bali"))
+                            )
+                            
+                            cursor.execute(sql, data)
+                            ugurlu_say += 1
+        conn.commit()
 class Gelivy:
     def __init__(self, user_uuid=None):
         self.user_uuid = user_uuid
@@ -199,7 +241,7 @@ Uğur Strategiyan:
         """İstifadəçinin yüklədiyi şəkli və daxil etdiyi mətni (prompt) birləşdirərək animasiya yaradır."""
         return ""
 
-    def ask(self, question, collection=None, image_description=""):
+    def ask(self, question,image_description=""):
         try:
             full_context = ""
             if image_description:
@@ -347,7 +389,7 @@ else:
                     img_desc = st.session_state.get("file_infos")
                 else:
                     img_desc = None
-                bot_response = bot.ask(question=user_input, collection=collection, image_description=img_desc)
+                bot_response = bot.ask(question=user_input, image_description=img_desc)
                 
                 if "last_generated_video" in st.session_state:
                     st.video(st.session_state.last_generated_video)
