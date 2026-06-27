@@ -87,7 +87,8 @@ class Gelivy:
             api_key=self.api_key,
             model="openai/gpt-oss-120b",
             temperature=0.3,
-            max_retries=3
+            max_retries=3,
+            max_tokens=2048
         )
         
         self.tools = [self.generate_video,
@@ -201,30 +202,37 @@ Uğur Strategiyan:
             full_context = ""
             if image_description:
                 full_context += f"【ŞƏKLİNİN TƏSVİRİ:】\n{image_description}\n\n"
-            search_query = f"%{question}%" 
+            
+            # Axtarış üçün təmiz kiçik hərflərlə sorğu və faizli SQL sorğusu hazırlayırıq
+            clean_question = question.strip()
+            search_query = f"%{clean_question}%" 
         
             with psycopg2.connect(st.secrets["DB_URL"]) as conn:
                 with conn.cursor() as cursor:
-                # 1. Standart RAG Məlumat bazası
+                    # 1. Standart RAG Məlumat bazası
                     cursor.execute(
-                    "SELECT content FROM rag_data WHERE content ILIKE %s LIMIT 5", 
-                    (search_query,)
-                )
+                        "SELECT content FROM rag_data WHERE content ILIKE %s LIMIT 5", 
+                        (search_query,)
+                    )
                     rag_rows = cursor.fetchall()
                 
                     if rag_rows:
                         full_context += "【MƏLUMAT BAZASI KONTEKSİ:】\n"
                         for row in rag_rows:
                             full_context += f"{row[0]}\n"
+                        full_context += "\n"
 
-                # 2. Faberlic Məhsul Bazası
+                    # 2. Faberlic Məhsul Bazası (AĞILLI VƏ DƏQİQ SQL SORĞUSU)
+                    # %s (yəni istifadəçinin sualı) daxilində artikul kodunun keçib-keçmədiyi yoxlanılır
                     product_sql = """
-                    SELECT artikul, mehsul_adi, aciqlama, ilkin_qiymet, kataloq_qiymeti, anbar_qiymeti, saticilara_ozel_endirimli_qiymet, mehsul_bali 
-                    FROM faberlic_mehsullar 
-                    WHERE artikul ILIKE %s OR mehsul_adi ILIKE %s 
-                    LIMIT 3
-                """
-                    cursor.execute(product_sql, (search_query, search_query))
+                        SELECT artikul, mehsul_adi, aciqlama, ilkin_qiymet, kataloq_qiymeti, anbar_qiymeti, saticilara_ozel_endirimli_qiymet, mehsul_bali 
+                        FROM faberlic_mehsullar 
+                        WHERE %s ILIKE CONCAT('%%', artikul, '%%') 
+                        OR mehsul_adi ILIKE %s
+                        LIMIT 5
+                    """
+                    # Diqqət: SQL daxilində CONCAT istifadə etdik ki, cümlə daxilindəki artikulu tuta bilsin
+                    cursor.execute(product_sql, (clean_question, search_query))
                     product_rows = cursor.fetchall()
                 
                     if product_rows:
@@ -239,18 +247,20 @@ Uğur Strategiyan:
                             if promo: full_context += f"  Aksiya/Satıcı Qiyməti: {promo} ₼\n"
                             if bal: full_context += f"  Qazanılacaq Bal: {bal}\n"
                             full_context += "-----------------------------------\n"
+                            
             if not full_context.strip() or full_context == f"【ŞƏKLİNİN TƏSVİRİ:】\n{image_description}\n\n":
                 full_context += "Məlumat bazasında bu məhsula və ya suala uyğun aktiv məlumat tapılmadı..."
+            
             history = self.load_chat_history()
         
-        # Modelə məlumatları göndəririk
+            # Modelə məlumatları və yenilənmiş təmiz KONTEKS-i göndəririk
             response = self.agent_executor.invoke({
-            "input": question,
-            "context": full_context,
-            "chat_history": history
-        })
+                "input": question,
+                "context": full_context,
+                "chat_history": history
+            })
         
-        # Keçmişi yeniləyirik
+            # Keçmişi yeniləyirik
             from langchain_core.messages import HumanMessage, AIMessage
             history.append(HumanMessage(content=question))
             history.append(AIMessage(content=response['output']))
@@ -260,7 +270,6 @@ Uğur Strategiyan:
         
         except Exception as e:
             return f"Error: {str(e)}"
-# 🌐 Streamlit Cloud uyğun daimi sessiya təyini (Kuki əvəzinə Query Parameters)
 user_full_name = st.query_params.get("faberlic_user_name")
 user_uuid = st.query_params.get("faberlic_user_uuid")
 
