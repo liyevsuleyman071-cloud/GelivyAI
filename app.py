@@ -287,8 +287,8 @@ else:
 
 # --- 🚀 PULSUZ E-POÇT GÖNDƏRMƏ FUNKSİYASI ---
 def email_kod_gonder(alici_email, kod):
-    GÖNDƏRƏN_EMAIL = st.secrets.get("GÖNDƏRƏN_EMAIL", "sənin_gelivy_poçtun@gmail.com")
-    GÖNDƏRƏN_ŞİFRƏ = st.secrets.get("GÖNDƏRƏN_ŞİFRƏ", "gmail_alınan_16_rəqəmli_app_password") 
+    GÖNDƏRƏN_EMAIL = st.secrets.get("GÖNDƏRƏN_EMAIL", "gelivyai@gmail.com")
+    GÖNDƏRƏN_ŞİFRƏ = st.secrets.get("GÖNDƏRƏN_ŞİFRƏ", "cztb exil eopc eaaz") 
 
     SÖZÜMÜZ = f"Gelivy AI qeydiyyat təsdiq kodunuz: {kod}\n\nZəhmət olmasa bu kodu heç kimlə paylaşmayın."
     msg = MIMEText(SÖZÜMÜZ, 'plain', 'utf-8')
@@ -342,10 +342,7 @@ if not user_full_name or not user_uuid:
     
     # Giriş və Qeydiyyat Tabları
     tab_giris, tab_qeydiyyat = st.tabs(["🔐 Giriş Et", "📝 Qeydiyyat Ol"])
-    
-    # ==========================================
-    # 1. GİRİŞ BÖLMƏSİ
-    # ==========================================
+
     with tab_giris:
         with st.form("giris_formu"):
             st.subheader("Hesabınıza Giriş Edin")
@@ -417,7 +414,6 @@ if not user_full_name or not user_uuid:
                             elif email_varmi:
                                 st.error("❌ Bu e-poçt ünvanı artıq sistemdə mövcuddur! Giriş et bölməsinə keçin.")
                             else:
-                                # Hər şey təmizdirsə, keçici məlumatları yadda saxla və OTP göndər
                                 random_otp = str(random.randint(100000, 999999))
                                 st.session_state.otp_kodu = random_otp
                                 st.session_state.mveqqeti_qeydiyyat_data = {
