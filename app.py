@@ -301,13 +301,12 @@ def email_kod_gonder(alici_email, kod):
         return True
     except Exception:
         return False
-
-# --- 📊 BAZA CƏDVƏLİNİN YARADILMASI ---
+    
 with psycopg2.connect(st.secrets["DB_URL"]) as conn:
     with conn.cursor() as cursor:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS istifadeciler (
-                id TEXT,
+                id TEXT PRIMARY KEY,
                 ad_soyad TEXT,
                 email TEXT UNIQUE,
                 sifre TEXT,
@@ -363,10 +362,6 @@ if not user_full_name or not user_uuid:
                         st.error("❌ E-poçt və ya şifrə yanlışdır!")
                 else:
                     st.error("Zəhmət olmasa bütün sahələri doldurun.")
-
-    # ==========================================
-    # 2. QEYDİYYAT BÖLMƏSİ (KOD SƏVİYYƏSİNDƏ TƏMZLƏNMİŞ VERSIYA)
-    # ==========================================
     with tab_qeydiyyat:
         if not st.session_state.otp_gonderildi:
             with st.form("qeydiyyat_formu"):
