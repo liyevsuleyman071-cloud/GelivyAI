@@ -461,21 +461,25 @@ else:
             istifadeci_balansi = cursor.fetchone()
             cari_balans = istifadeci_balansi[0] if istifadeci_balansi else 0.00
     st.markdown(
-        f"""
-        <div style="
-            background-color: #f0f2f6; 
-            padding: 8px 16px; 
-            border-radius: 8px; 
-            margin-bottom: 20px; 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center;
-            border-left: 5px solid #ff4b4b;">
-            <span style="font-weight: bold; color: #31333F; font-size: 14px;">Gelivy AI</span>
-            <span style="font-weight: bold; color: #ff4b4b; font-size: 16px;">Balans: {cari_balans} ₼</span>
-        </div>
-        """, 
-        unsafe_allow_html=True
+    f"""
+    <div style="
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        background-color: #f0f2f6; 
+        padding: 10px 24px; 
+        box-shadow: 0px 2px 5px rgba(0,0,0,0.05);
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center;
+        border-bottom: 3px solid #ff4b4b;
+        z-index: 999990;">
+        <span style="font-weight: bold; color: #31333F; font-size: 14px;">Gelivy AI Panel</span>
+        <span style="font-weight: bold; color: #ff4b4b; font-size: 16px; margin-right: 20px;">Balans: {cari_balans} ₼</span>
+    </div>
+    <div style="margin-top: 50px;"></div> """, 
+    unsafe_allow_html=True
     )
     secim= st.sidebar.selectbox("MENYULAR",["AI Çat","Balans ve Tarifler","Sosial Şəbəkə inteqrasiyası"])
     st.sidebar.markdown("<br>" * 12, unsafe_allow_html=True) 
