@@ -1,6 +1,7 @@
 import psycopg2
 import requests
 from fastapi import FastAPI, Request, Response
+from app import Gelivy
 
 app = FastAPI()
 
@@ -52,9 +53,25 @@ async def instagram_comment_webhook(request: Request):
                 
                 video_url = f"https://graph.facebook.com/v19.0/{media_id}"
                 video_res = requests.get(video_url, params={"fields": "caption", "access_token": user_token}).json()
-                video_aciqlamasi = video_res.get("caption", "") 
-                
-                # bot_cavabi = bot.ask(f"Video mətni: {video_aciqlamasi}. Sual: {gelen_sual}.")
+                video_aciqlamasi = video_res.get("caption", "")
+                Gelivy 
+                bot=Gelivy(comment_id,prompt=f"""Sən "Gelivy AI" tərəfindən quraşdırılmış professional və köməkçil bir Instagram satış asistentisən. 
+Sənə bir müştərinin sualı və həmin şərhin yazıldığı videonun altındakı rəsmi açıqlama (caption) mətni veriləcək.
+
+Səndən tələb olunan qaydalar:
+1. Müştərinin sualına yalnız və yalnız videonun altındakı rəsmi açıqlama mətninə əsasən cavab ver. 
+2. Əgər videonun altında qiymət, rəng, çatdırılma və ya ölçü barədə məlumat varsa, sualı dərhal və dəqiq cavablandır.
+3. Əgər müştərinin soruşduğu məlumat (məsələn, qiymət) video mətnində YOXDURSA, uydurma rəqəm demə!
+4. Cavabların qısa, aydın, səmimi və maksimum 2-3 cümlədən ibarət olsun.
+5. Uyğun yerlərdə pozitiv emojilərdən (✨, 🌸, 🛍️, ✅) istifadə et.
+6. Müştəri hansı dildə yazırsa (Azərbaycanca, Rusca və ya Türkcə), ona həmin dildə cavab ver.
+
+---
+VİDEO MƏTNİ:
+{video_aciqlamasi}
+
+İndi bu qaydalara uyğun olaraq müştəriyə yazılacaq son cavab mətnini generasiya et (əlavə heç bir giriş və ya izah yazma, sadəcə cavabın özünü ver):""")
+                bot_cavabi = bot.ask(gelen_sual)
                 bot_cavabi = "Salam! Sualınız üçün təşəkkürlər. Maraqlandığınız məhsul barədə məlumat Direct qutunuza göndərildi! ✨" 
                 
                 reply_url = f"https://graph.facebook.com/v19.0/{comment_id}/replies"

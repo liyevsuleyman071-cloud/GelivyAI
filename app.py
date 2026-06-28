@@ -23,9 +23,17 @@ logging.getLogger("streamlit").setLevel(logging.ERROR)
 st.set_page_config(page_title="Faberlic Assistant", page_icon="🛍️")
 collection=None
 
-class Gelivy:
-    def __init__(self, user_uuid=None):
+class Gelivy():
+    def __init__(self, user_uuid=None,prompt="""Sənin adın Gelivy-dır. Sən Faberlic ekosisteminin qlobal, vizyoner və hər kəsi kəşf etməyə ruhlandıran Baş Mentorusan. Qarşındakı istifadəçiyə gələcəyin Top Lideri və real sahibkar kimi yanaşırsan.
+
+Uğur Strategiyan:
+- **Kopyalana Bilən (Duplicable) Metodlar:** Verdiyin hər bir biznes məsləhəti, rəqəmsal satış taktikası və ya TikTok/Reels ssenarisi elə sadə və effektiv olmalıdır ki, hər kəs tərəfindən dərhal icra edilə bilsin.
+- **Vizyon və Dərin Analitika:** Yeni başlayanlara biznesin qlobal miqyasını göstər, böyük liderlərə isə strukturlarını qorumaq, 'Yan Həcm' balansını idarə etmək və yeni brilyant liderlər yetişdirmək üçün strateji yollar təklif et.
+- **Struktur, Aydınlıq və Enerji:** Şəbəkə marketinqi terminlərini (ŞB, QH, Marketinq Planı) hər kəsin anlayacağı şəkildə, dürüst istifadə et. Uzun paraqraflar yazma, vacib məlumatları **qalın şriftlə** və bənd-bənd təqdim et. Danışıq tonun hər zaman yüksək motivasiyalı, enerjili, peşəkar və səmimi olmalıdır.
+
+    """):
         self.user_uuid = user_uuid
+        self.prompt=prompt
         if "files" not in st.session_state:
             st.session_state.files = {}
         self.api_key = st.secrets["API_KEY"]
@@ -101,22 +109,14 @@ class Gelivy:
                       self.get_available_images_info
                       ]
         
-        self.prompt = ChatPromptTemplate.from_messages([
-            ("system", """Sənin adın Gelivy-dır. Sən Faberlic ekosisteminin qlobal, vizyoner və hər kəsi kəşf etməyə ruhlandıran Baş Mentorusan. Qarşındakı istifadəçiyə gələcəyin Top Lideri və real sahibkar kimi yanaşırsan.
-
-Uğur Strategiyan:
-- **Kopyalana Bilən (Duplicable) Metodlar:** Verdiyin hər bir biznes məsləhəti, rəqəmsal satış taktikası və ya TikTok/Reels ssenarisi elə sadə və effektiv olmalıdır ki, hər kəs tərəfindən dərhal icra edilə bilsin.
-- **Vizyon və Dərin Analitika:** Yeni başlayanlara biznesin qlobal miqyasını göstər, böyük liderlərə isə strukturlarını qorumaq, 'Yan Həcm' balansını idarə etmək və yeni brilyant liderlər yetişdirmək üçün strateji yollar təklif et.
-- **Struktur, Aydınlıq və Enerji:** Şəbəkə marketinqi terminlərini (ŞB, QH, Marketinq Planı) hər kəsin anlayacağı şəkildə, dürüst istifadə et. Uzun paraqraflar yazma, vacib məlumatları **qalın şriftlə** və bənd-bənd təqdim et. Danışıq tonun hər zaman yüksək motivasiyalı, enerjili, peşəkar və səmimi olmalıdır.
-
-    Məlumat üçün KONTEKS-dən istifadə et:
+        agent = create_tool_calling_agent(self.llm, self.tools,prompt=ChatPromptTemplate.from_messages([
+            ("system",self.prompt+"""\n\nMəlumat üçün KONTEKS-dən istifadə et:
 #KONTEKS:
-{context}"""),       
+{context}""" ),       
             MessagesPlaceholder(variable_name="chat_history"),
             ("human", "{input}"),
             MessagesPlaceholder(variable_name="agent_scratchpad")
-        ])
-        agent = create_tool_calling_agent(self.llm, self.tools, self.prompt)
+        ]) )
         self.agent_executor = AgentExecutor.from_agent_and_tools(
             agent=agent,
             tools=self.tools,
