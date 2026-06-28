@@ -465,8 +465,8 @@ else:
     <div style="
         position: fixed;
         top: 0;
-        left: 0;
-        width: 100%;
+        left: 60px;
+        right: 0;
         background-color: #f0f2f6; 
         padding: 10px 24px; 
         box-shadow: 0px 2px 5px rgba(0,0,0,0.05);
@@ -478,9 +478,10 @@ else:
         <span style="font-weight: bold; color: #31333F; font-size: 14px;">Gelivy AI Panel</span>
         <span style="font-weight: bold; color: #ff4b4b; font-size: 16px; margin-right: 20px;">Balans: {cari_balans} ₼</span>
     </div>
-    <div style="margin-top: 50px;"></div> """, 
+    <div style="margin-top: 50px;"></div>
+    """, 
     unsafe_allow_html=True
-    )
+)
     secim= st.sidebar.selectbox("MENYULAR",["AI Çat","Balans ve Tarifler","Sosial Şəbəkə inteqrasiyası"])
     st.sidebar.markdown("<br>" * 12, unsafe_allow_html=True) 
     st.sidebar.subheader(f"👤 {user_full_name}")
