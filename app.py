@@ -311,7 +311,14 @@ def hesab_elave_et(hesab={},id=""):
                 "UPDATE istifadeciler SET hesablar = %s WHERE id = %s",(metn,id)
             )
             conn.commit()
-
+@st.cache_resource
+def install_playwright_browsers():
+    try:
+        os.system("python -m playwright install chromium")
+        print("Playwright brauzerləri uğurla quraşdırıldı!")
+    except Exception as e:
+        print(f"Yükləmə zamanı xəta: {e}")
+install_playwright_browsers()
 with psycopg2.connect(st.secrets["DB_URL"]) as conn:
     with conn.cursor() as cursor:
         cursor.execute("""
