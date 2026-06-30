@@ -550,7 +550,7 @@ else:
                     if insta_adi and insta_sifre:
                         with sync_playwright() as p:
                             iphone_13 = p.devices['iPhone 13']
-                            browser = p.chromium.launch(headless=False)
+                            browser = p.chromium.launch(headless=True)
                             context = browser.new_context(**iphone_13)
                             page = context.new_page()
     
