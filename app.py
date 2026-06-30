@@ -15,6 +15,7 @@ import smtplib
 from email.mime.text import MIMEText
 from streamlit_js_eval import streamlit_js_eval
 import uuid
+from playwright.sync_api import sync_playwright
 
 
 warnings.filterwarnings("ignore")
@@ -302,7 +303,7 @@ def email_kod_gonder(alici_email, kod):
     except Exception:
         return False
 
-def hesab_elave_et(hesab=[],id=""):
+def hesab_elave_et(hesab={},id=""):
     metn=json.dumps(hesab)
     with psycopg2.connect(st.secrets["DB_URL"]) as conn:
         with conn.cursor() as cursor:
@@ -543,15 +544,35 @@ else:
         tab_insta,=st.tabs(["İnstagram"])
         with tab_insta:
             with st.form("insta_giris"):
-                insta_adi=st.text_input("Hesab Adı (Məsələn: @gelivyai)").strip().lower()
+                insta_adi=st.text_input("Hesab Adı (Məsələn: gelivyai)").strip().lower()
                 insta_sifre=st.text_input("Hesab şifrənizi yazın",type="password")
-                if st.form_submit_button("Hesabı İnteqrasiya Et"):
-                    if insta_sifre and insta_adi:
-                        insta_info={"instagram":{"hesab_adi":insta_adi,"hesab_sifre":insta_sifre}}
-                        hesab_elave_et(insta_info,user_uuid)
-                        st.success("Hesabınız uğurla inteqrasiya edildi")
-                    else:
-                        st.error("Zəhmət olmasa bütün xanaları doldurun.")
+                if st.button("Giriş et"):
+                    whatsapp_kodu=st.text_input("Whatsapp üzərindən göndərilən kodu daxil edin")
+                    if st.button("Botu aktivləşdir"):
+                        if whatsapp_kodu:
+                            with sync_playwright() as p:
+                                iphone_13 = p.devices['iPhone 13']
+                                browser = p.chromium.launch(headless=False)
+                                context = browser.new_context(**iphone_13)
+                                page = context.new_page()
+    
+                                page.goto('https://www.instagram.com/accounts/login/')
+                                page.locator("button:has-text('Log in')").click()
+                                page.wait_for_timeout(timeout=3000)
+                                page.locator("input[name='username']").fill(insta_adi)
+                                page.locator('input[name="password"]').fill(insta_sifre)
+                                page.get_by_role("button", name="Log in").click()
+
+                                storage_data = context.storage_state()
+                                json_string = json.dumps(storage_data, ensure_ascii=False)
+                            if json_string:
+                                hesab_elave_et({"Instagram":json_string})
+                                st.success("Hesab uğurla inteqrasiya edildi")
+                            else:
+                                st.error("Inteqrasiya baş tutmadı")
+                        else:
+                            st.error("Kodu daxil edin!")
+
     with st.sidebar:
         st.subheader("🎬 Şəkil Yükləmə")
         uploaded_files = st.file_uploader('Şəkil yükləyin (.png, .jpg, .jpeg, .webp)', 
