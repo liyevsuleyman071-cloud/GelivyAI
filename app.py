@@ -316,14 +316,7 @@ def hesab_elave_et(hesab={},id=""):
                 "UPDATE istifadeciler SET hesablar = %s WHERE id = %s",(metn,id)
             )
             conn.commit()
-@st.cache_resource
-def install_playwright_browsers():
-    try:
-        os.system("python -m playwright install chromium")
-        print("Playwright brauzerləri uğurla quraşdırıldı!")
-    except Exception as e:
-        print(f"Yükləmə zamanı xəta: {e}")
-install_playwright_browsers()
+
 with psycopg2.connect(st.secrets["DB_URL"]) as conn:
     with conn.cursor() as cursor:
         cursor.execute("""
@@ -576,8 +569,7 @@ else:
                     mobile_emulation = {"deviceName": "Nexus 5"}
                     chrome_options.add_experimental_option("mobileEmulation", mobile_emulation)
                 
-                # Brauzeri başladırıq
-                    service = Service(ChromeDriverManager().install())
+                    service = Service(executable_path="/usr/bin/chromedriver")
                     driver = webdriver.Chrome(service=service, options=chrome_options)
                 
                     try:
