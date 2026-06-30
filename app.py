@@ -546,34 +546,35 @@ else:
             with st.form("insta_giris"):
                 insta_adi=st.text_input("Hesab adınızı yazın (Məsələn: gelivyai)").strip().lower()
                 insta_sifre=st.text_input("Hesab şifrənizi yazın",type="password").strip()
-                if insta_adi and insta_sifre:
-                    with sync_playwright() as p:
-                        iphone_13 = p.devices['iPhone 13']
-                        browser = p.chromium.launch(headless=False)
-                        context = browser.new_context(**iphone_13)
-                        page = context.new_page()
+                if st.form_submit_button("Təstiqləyin"):
+                    if insta_adi and insta_sifre:
+                        with sync_playwright() as p:
+                            iphone_13 = p.devices['iPhone 13']
+                            browser = p.chromium.launch(headless=False)
+                            context = browser.new_context(**iphone_13)
+                            page = context.new_page()
     
-                        page.goto('https://www.instagram.com/accounts/login/')
-                        page.locator("button:has-text('Log in')").click()
-                        page.wait_for_timeout(timeout=3000)
-                        page.locator("input[name='username']").fill(insta_adi)
-                        page.locator('input[name="password"]').fill(insta_sifre)
-                        page.get_by_role("button", name="Log in").click()
-                        page.wait_for_timeout(2000)
-                        if page.get_by_label("Code").is_visible():
-                            insta_kod=st.text_input("Kod")
-                            st.warning("Göndərilən 6 rəqəmli kod daxil edin.")
-                            if len(insta_kod)==6:
-                                page.locator("input[aria-label='Code'][inputmode='numeric']").fill(insta_kod)
-                                page.wait_for_timeout(600)
-                                page.get_by_role("button", name="Continue").click()
-                                page.wait_for_timeout(500)
-                        page.goto(f'https://www.instagram.com/{insta_adi}/')
-                        data=context.storage_state()
-                        hesab_elave_et({"Instagram":data})
-                        st.success("Hesab uğurla inteqrasiya edildi.")
-                else:
-                    st.error("Ad və şifrənizi yazın!")
+                            page.goto('https://www.instagram.com/accounts/login/')
+                            page.locator("button:has-text('Log in')").click()
+                            page.wait_for_timeout(timeout=3000)
+                            page.locator("input[name='username']").fill(insta_adi)
+                            page.locator('input[name="password"]').fill(insta_sifre)
+                            page.get_by_role("button", name="Log in").click()
+                            page.wait_for_timeout(2000)
+                            if page.get_by_label("Code").is_visible():
+                                insta_kod=st.text_input("Kod")
+                                st.warning("Göndərilən 6 rəqəmli kod daxil edin.")
+                                if len(insta_kod)==6:
+                                    page.locator("input[aria-label='Code'][inputmode='numeric']").fill(insta_kod)
+                                    page.wait_for_timeout(600)
+                                    page.get_by_role("button", name="Continue").click()
+                                    page.wait_for_timeout(500)
+                            page.goto(f'https://www.instagram.com/{insta_adi}/')
+                            data=context.storage_state()
+                            hesab_elave_et({"Instagram":data})
+                            st.success("Hesab uğurla inteqrasiya edildi.")
+                    else:
+                        st.error("Ad və şifrənizi yazın!")
                 
 
 
