@@ -540,7 +540,7 @@ else:
         pass
     elif secim=="Sosial Şəbəkə inteqrasiyası":
         st.title("Instagram AI Asistent İnteqrasiyası")
-        tab_insta=st.tabs(["İnstagram"])
+        tab_insta,=st.tabs(["İnstagram"])
         with tab_insta:
             with st.form("insta_giris"):
                 insta_adi=st.text_input("Hesab Adı (Məsələn: @gelivyai)").strip().lower()
