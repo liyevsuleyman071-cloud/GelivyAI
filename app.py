@@ -15,7 +15,12 @@ import smtplib
 from email.mime.text import MIMEText
 from streamlit_js_eval import streamlit_js_eval
 import uuid
-from playwright.sync_api import sync_playwright
+from selenium import webdriver
+from selenium.webdriver.chrome.service import Service
+from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.common.by import By
+import time
 
 
 warnings.filterwarnings("ignore")
@@ -546,42 +551,86 @@ else:
                     st.session_state.messages.append({"role": "assistant", "content": bot_response, "type": "text"})
     elif secim=="Balans ve Tarifler":
         pass
-    elif secim=="Sosial Şəbəkə inteqrasiyası":
+    elif secim == "Sosial Şəbəkə inteqrasiyası":
         st.title("Instagram AI Asistent İnteqrasiyası")
-        tab_insta,=st.tabs(["İnstagram"])
-        with tab_insta:
-            with st.form("insta_giris"):
-                insta_adi=st.text_input("Hesab adınızı yazın (Məsələn: gelivyai)").strip().lower()
-                insta_sifre=st.text_input("Hesab şifrənizi yazın",type="password").strip()
-                if st.form_submit_button("Təstiqləyin"):
-                    if insta_adi and insta_sifre:
-                        with sync_playwright() as p:
-                            iphone_13 = p.devices['iPhone 13']
-                            browser = p.chromium.launch(headless=True)
-                            context = browser.new_context(**iphone_13)
-                            page = context.new_page()
+        tab_insta, = st.tabs(["İnstagram"])
     
-                            page.goto('https://www.instagram.com/accounts/login/')
-                            page.locator("button:has-text('Log in')").click()
-                            page.wait_for_timeout(timeout=3000)
-                            page.locator("input[name='username']").fill(insta_adi)
-                            page.locator('input[name="password"]').fill(insta_sifre)
-                            page.get_by_role("button", name="Log in").click()
-                            page.wait_for_timeout(2000)
-                            if page.get_by_label("Code").is_visible():
-                                insta_kod=st.text_input("Kod")
-                                st.warning("Göndərilən 6 rəqəmli kod daxil edin.")
-                                if len(insta_kod)==6:
-                                    page.locator("input[aria-label='Code'][inputmode='numeric']").fill(insta_kod)
-                                    page.wait_for_timeout(600)
-                                    page.get_by_role("button", name="Continue").click()
-                                    page.wait_for_timeout(500)
-                            page.goto(f'https://www.instagram.com/{insta_adi}/')
-                            data=context.storage_state()
-                            hesab_elave_et({"Instagram":data})
-                            st.success("Hesab uğurla inteqrasiya edildi.")
-                    else:
-                        st.error("Ad və şifrənizi yazın!")
+        with tab_insta:
+        # Streamlit-də dinamik addımlar üçün form yerinə normal container istifadə etmək daha yaxşıdır
+            insta_adi = st.text_input("Hesab adınızı yazın (Məsələn: gelivyai)").strip().lower()
+            insta_sifre = st.text_input("Hesab şifrənizi yazın", type="password").strip()
+        
+        # Əgər kod tələb olunarsa, istifadəçinin daxil etməsi üçün session_state yaradırıq
+            if "need_code" not in st.session_state:
+                st.session_state.need_code = False
+            
+            if st.button("Təstıqləyin") or st.session_state.need_code:
+                if insta_adi and insta_sifre:
+                # 1. Chrome Sazlamaları
+                    chrome_options = Options()
+                    chrome_options.add_argument("--headless")  # Server üçün mütləqdir
+                    chrome_options.add_argument("--no-sandbox")
+                    chrome_options.add_argument("--disable-dev-shm-usage")
+                
+                # Mobil görünüş emulyasiyası (İnstagram mobil interfeys üçün)
+                    mobile_emulation = {"deviceName": "Nexus 5"}
+                    chrome_options.add_experimental_option("mobileEmulation", mobile_emulation)
+                
+                # Brauzeri başladırıq
+                    service = Service(ChromeDriverManager().install())
+                    driver = webdriver.Chrome(service=service, options=chrome_options)
+                
+                    try:
+                        driver.get('https://www.instagram.com/accounts/login/')
+                        time.sleep(1)
+                    
+                    # İstifadəçi adı və şifrəni daxil edirik
+                        driver.find_element(By.NAME, "username").send_keys(insta_adi)
+                        driver.find_element(By.NAME, "password").send_keys(insta_sifre)
+                    
+                    # Log in düyməsini tapıb sıxırıq (aria-label-a görə)
+                        login_btn = driver.find_element(By.XPATH, "//div[@role='button'][@aria-label='Log in']")
+                        login_btn.click()
+                        time.sleep(2)
+                    
+                    # 2FA Kod yoxlanışı
+                    # Əgər ekranda aria-label="Code" olan element varsa
+                        code_inputs = driver.find_elements(By.XPATH, "//input[@aria-label='Code']")
+                    
+                        if len(code_inputs) > 0:
+                            st.session_state.need_code = True
+                            st.warning("Göndərilən 6 rəqəmli kodu daxil edin.")
+                            insta_kod = st.text_input("Giriş Kodu", key="insta_2fa_code")
+                        
+                            if len(insta_kod) == 6:
+                                code_inputs[0].send_keys(insta_kod)
+                                time.sleep(1)
+                            
+                            # Continue düyməsini sıxırıq
+                                continue_btn = driver.find_element(By.XPATH, "//div[@role='button'][@aria-label='Continue']")
+                                continue_btn.click()
+                                time.sleep(5)
+                    
+                    # Profil səhifəsinə yönləndirmə
+                        driver.get(f'https://www.instagram.com/{insta_adi}/')
+                        time.sleep(3)
+                    
+                    # Selenium-da kuki və sessiya məlumatlarını götürürük
+                        cookies = driver.get_cookies()
+                    
+                    # Sizin metodunuza uyğun formata salırıq
+                        data = {"cookies": cookies}
+                        hesab_elave_et({"Instagram": data})
+                    
+                        st.success("Hesab uğurla inteqrasiya edildi.")
+                        st.session_state.need_code = False
+                    
+                    except Exception as e:
+                        st.error(f"Xəta baş verdi: {str(e)}")
+                    finally:
+                        driver.quit()  # Brauzeri hər bir halda bağlayırıq
+                else:
+                    st.error("Ad və şifrənizi yazın!")
                 
 
 

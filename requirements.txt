@@ -11,4 +11,5 @@ torch
 torchvision
 psycopg2-binary
 streamlit_js_eval
-playwright
+selenium
+webdriver_manager
