@@ -301,7 +301,16 @@ def email_kod_gonder(alici_email, kod):
         return True
     except Exception:
         return False
-    
+
+def hesab_elave_et(hesab=[],id=""):
+    metn=json.dumps(hesab)
+    with psycopg2.connect(st.secrets["DB_URL"]) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "UPDATE istifadeciler SET hesablar = %s WHERE id = %s",(metn,id)
+            )
+            conn.commit()
+
 with psycopg2.connect(st.secrets["DB_URL"]) as conn:
     with conn.cursor() as cursor:
         cursor.execute("""
@@ -313,11 +322,11 @@ with psycopg2.connect(st.secrets["DB_URL"]) as conn:
                 cihaz_hash TEXT,
                 balans NUMERIC DEFAULT 0.00,
                 tarix TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                hesablar TEXT
             );
         """)
         conn.commit()
 
-# Query Parametrləri vasitəsilə daimi giriş kontrolu
 user_full_name = st.query_params.get("faberlic_user_name")
 user_uuid = st.query_params.get("faberlic_user_uuid")
 
@@ -531,81 +540,13 @@ else:
         pass
     elif secim=="Sosial Şəbəkə inteqrasiyası":
         st.title("Instagram AI Asistent İnteqrasiyası")
-        st.write("Gelivy AI-ın Instagram rəylərinizi 7/24 avtomatik cavablandırması üçün aşağıdakı quraşdırmanı tamamlayın.")
-
-        sol_kolon, sag_kolon = st.columns([1, 1])
-        with sol_kolon:
-            st.subheader("🔑 İnteqrasiya Məlumatları")
-    
-    # Form daxilində elementləri qruplaşdırırıq
-            with st.form("instagram_config_form"):
-                user_insta_id = st.text_input(
-            "Instagram Business Account ID", 
-            placeholder="Məsələn: 1784140123456789",
-            help="Instagram hesabınızın rəqəmlərdən ibarət unikal ID kodu."
-        )
-        
-                user_token = st.text_input(
-            "Meta Page Access Token", 
-            type="password",
-            placeholder="EAABw...",
-            help="Meta Developer panelindən aldığınız uzunmüddətli rəsmi giriş açarı."
-        )
-        
-                bot_status = st.toggle("Süni İntellekt Botunu Aktiv Et", value=True)
-                submit_btn = st.form_submit_button("Ayarları Yadda Saxla və Aktiv Et")
-        
-                if submit_btn:
-                    if not user_insta_id or not user_token:
-                        st.error("⚠️ Zəhmət olmasa həm ID kodunu, həm də Tokeni daxil edin!")
-                    else:
-                        st.success("🎉 İnteqrasiya uğurla tamamlandı! AI Bot arxa planda mesajları gözləyir.")
-        with sag_kolon:
-            st.subheader("📖 Addım-Addım Quraşdırma Bələdçisi")
-    
-            st.info("💡 Hər hansı bir addımda çətinlik çəksəniz, təlimatı diqqətlə oxuyun.")
-            with st.expander("🔴 ADDIM 1: Instagram Profilinin Hazırlanması", expanded=True):
-                st.markdown("""
-        1. Telefonunuzda **Instagram** tətbiqini açın.
-        2. Profilinizə daxil olub **Ayarlar (Settings)** bölməsinə keçin.
-        3. Hesab növünü şəxsidən **Professional/Business (İşletme)** rejiminə dəyişin (Creator/Yazar yox, mütləq Business seçilməlidir).
-        4. Bir **Facebook Səhifəsi (Page)** yaradın və Instagram hesabınızı bu Facebook səhifəsinə bağlayın.
-        """)
-        
-    # Addım 2
-            with st.expander("🔵 ADDIM 2: Meta Developer Paneli və Layihə Yaradılması", expanded=False):
-                st.markdown("""
-        1. [developers.facebook.com](https://developers.facebook.com/) saytına daxil olun və Facebook hesabınızla giriş edin.
-        2. Yuxarı sağ küncdəki **My Apps (Uygulamalarım)** düyməsinə, açılan səhifədə isə **Create App (Uygulama Oluştur)** düyməsinə basın.
-        3. Növbəti addımda tətbiq növü olaraq **Other (Diğer)** -> **Business (İşletme)** seçərək layihənizə bir ad qoyun və yaradın.
-        4. Dashboard (İdarə paneli) açılacaq. Siyahıdan **Instagram Graph API** tapın və altındakı **Set Up (Kurulum)** düyməsinə klikləyin.
-        """)
-        
-    # Addım 3
-            with st.expander("🟢 ADDIM 3: İcazələrin Verilməsi və Tokenin Alınması", expanded=False):
-                st.markdown("""
-        1. Meta panelində yuxarı menyudan **Tools (Araçlar)** -> **Graph API Explorer** bölməsinə daxil olun.
-        2. Sağ tərəfdə yerləşən **Meta App** bölməsində indicə yaratdığınız tətbiqin adını seçin.
-        3. **Permissions (İzinler)** bölməsində aşağıdakı icazələrin mütləq əlavə olunduğundan əmin olun (yoxdursa əlavə edin):
-            * `instagram_basic`
-            * `instagram_manage_comments`
-            * `pages_manage_metadata`
-            * `pages_show_list`
-        4. İcazələri seçdikdən sonra **Generate Access Token** göy düyməsinə klikləyin və Facebook pəncərəsində icazəni təsdiqləyin.
-        5. Ekrana gələn çox uzun **Access Token** kodunu kopyalayın və sol tərəfdəki **Meta Page Access Token** xanasına yapışdırın.
-        """)
-        
-    # Addım 4
-            with st.expander("🟣 ADDIM 4: Instagram Business ID Kodunun Tapılması", expanded=False):
-                st.markdown("""
-        1. Yenə həmin **Graph API Explorer** səhifəsində qalın.
-        2. Ekranın ortasında yerləşən axtarış/sorğu sətrinə (default olaraq `me?fields=id,name` yazılan yerə) tam olaraq bunu yazın:
-           `me/accounts?fields=instagram_business_account`
-        3. Sağ tərəfdəki göy **Submit** düyməsinə basın.
-        4. Sağdakı nəticə pəncərəsində (JSON formatında) `"instagram_business_account": {"id": "178414..."}` şəklində rəqəmlər görünəcək.
-        5. Həmin ID rəqəmlərini kopyalayıb sol tərəfdəki **Instagram Business Account ID** xanasına yapışdırın.
-        """)
-
+        tab_insta=st.tabs(["İnstagram"])
+        with tab_insta:
+            with st.form("insta_giris"):
+                insta_adi=st.text_input("Hesab Adı (Məsələn: @gelivyai)").strip().lower()
+                insta_sifre=st.text_input("Hesab şifrənizi yazın",type="password")
+                insta_info={"instagram":{"hesab_adi":insta_adi,"hesab_sifre":insta_sifre}}
+                hesab_elave_et(insta_info,user_uuid)
     with st.sidebar:
         st.subheader("🎬 Şəkil Yükləmə")
         uploaded_files = st.file_uploader('Şəkil yükləyin (.png, .jpg, .jpeg, .webp)', 
