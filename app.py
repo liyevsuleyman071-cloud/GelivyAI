@@ -545,8 +545,13 @@ else:
             with st.form("insta_giris"):
                 insta_adi=st.text_input("Hesab Adı (Məsələn: @gelivyai)").strip().lower()
                 insta_sifre=st.text_input("Hesab şifrənizi yazın",type="password")
-                insta_info={"instagram":{"hesab_adi":insta_adi,"hesab_sifre":insta_sifre}}
-                hesab_elave_et(insta_info,user_uuid)
+                if st.form_submit_button("Hesabı İnteqrasiya Et"):
+                    if insta_sifre and insta_adi:
+                        insta_info={"instagram":{"hesab_adi":insta_adi,"hesab_sifre":insta_sifre}}
+                        hesab_elave_et(insta_info,user_uuid)
+                        st.success("Hesabınız uğurla inteqrasiya edildi")
+                    else:
+                        st.error("Zəhmət olmasa bütün xanaları doldurun.")
     with st.sidebar:
         st.subheader("🎬 Şəkil Yükləmə")
         uploaded_files = st.file_uploader('Şəkil yükləyin (.png, .jpg, .jpeg, .webp)', 
