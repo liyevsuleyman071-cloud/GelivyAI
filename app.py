@@ -321,7 +321,7 @@ with psycopg2.connect(st.secrets["DB_URL"]) as conn:
                 sifre TEXT,
                 cihaz_hash TEXT,
                 balans NUMERIC DEFAULT 0.00,
-                tarix TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                tarix TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 hesablar TEXT
             );
         """)
