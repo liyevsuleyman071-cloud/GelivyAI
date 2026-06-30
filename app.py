@@ -17,7 +17,8 @@ from streamlit_js_eval import streamlit_js_eval
 import uuid
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
-from webdriver_manager.chrome import ChromeDriverManager
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 import time
@@ -549,78 +550,95 @@ else:
         tab_insta, = st.tabs(["İnstagram"])
     
         with tab_insta:
-        # Streamlit-də dinamik addımlar üçün form yerinə normal container istifadə etmək daha yaxşıdır
             insta_adi = st.text_input("Hesab adınızı yazın (Məsələn: gelivyai)").strip().lower()
             insta_sifre = st.text_input("Hesab şifrənizi yazın", type="password").strip()
         
-        # Əgər kod tələb olunarsa, istifadəçinin daxil etməsi üçün session_state yaradırıq
+        # 2FA mərhələsini idarə etmək üçün session_state sazlamaları
             if "need_code" not in st.session_state:
                 st.session_state.need_code = False
-            
-            if st.button("Təstıqləyin") or st.session_state.need_code:
+
+        # Əgər kod tələb olunursa, istifadəçiyə daxiletmə xanasını göstəririk
+            insta_kod = ""
+            if st.session_state.need_code:
+                st.warning("Göndərilən 6 rəqəmli kodu daxil edin.")
+                insta_kod = st.text_input("Giriş Kodu", key="insta_2fa_code").strip()
+
+        # Düyməyə basıldıqda və ya kod daxil edilməsi gözləniləndə işə düşür
+            if st.button("Təstiqləyin") or (st.session_state.need_code and len(insta_kod) == 6):
                 if insta_adi and insta_sifre:
-                # 1. Chrome Sazlamaları
+                
+                # 1. Server üçün Chrome Sazlamaları
                     chrome_options = Options()
-                    chrome_options.add_argument("--headless")  # Server üçün mütləqdir
+                    chrome_options.add_argument("--headless")  # Ekranı gizlədir (Mütləqdir)
                     chrome_options.add_argument("--no-sandbox")
                     chrome_options.add_argument("--disable-dev-shm-usage")
                 
-                # Mobil görünüş emulyasiyası (İnstagram mobil interfeys üçün)
+                # Mobil görünüş rejimi
                     mobile_emulation = {"deviceName": "Nexus 5"}
                     chrome_options.add_experimental_option("mobileEmulation", mobile_emulation)
                 
+                # Sürücü yolu (Daxili rəsmi Streamlit yolu)
                     service = Service(executable_path="/usr/bin/chromedriver")
                     driver = webdriver.Chrome(service=service, options=chrome_options)
                 
+                # Maksimum 15 saniyəlik ağıllı gözləmə obyekti yaradırıq
+                    wait = WebDriverWait(driver, 15)
+                
                     try:
                         driver.get('https://www.instagram.com/accounts/login/')
-                        time.sleep(1)
                     
-                    # İstifadəçi adı və şifrəni daxil edirik
-                        driver.find_element(By.NAME, "username").send_keys(insta_adi)
-                        driver.find_element(By.NAME, "password").send_keys(insta_sifre)
+                    # Elementlərin dinamik yüklənməsini gözləyirik (time.sleep əvəzinə)
+                        username_input = wait.until(EC.presence_of_element_located((By.NAME, "username")))
+                        password_input = driver.find_element(By.NAME, "password")
                     
-                    # Log in düyməsini tapıb sıxırıq (aria-label-a görə)
+                    # Məlumatları daxil edirik
+                        username_input.send_keys(insta_adi)
+                        password_input.send_keys(insta_sifre)
+                    
+                    # Log in düyməsini tapıb sıxırıq
                         login_btn = driver.find_element(By.XPATH, "//div[@role='button'][@aria-label='Log in']")
                         login_btn.click()
-                        time.sleep(2)
                     
-                    # 2FA Kod yoxlanışı
-                    # Əgər ekranda aria-label="Code" olan element varsa
+                    # Giriş sorğusunun işlənməsi üçün qısa fasilə
+                        time.sleep(4)
+                    
+                    # 2. 2FA (WhatsApp/SMS) Kod yoxlanışı mərhələsi
                         code_inputs = driver.find_elements(By.XPATH, "//input[@aria-label='Code']")
                     
                         if len(code_inputs) > 0:
-                            st.session_state.need_code = True
-                            st.warning("Göndərilən 6 rəqəmli kodu daxil edin.")
-                            insta_kod = st.text_input("Giriş Kodu", key="insta_2fa_code")
+                        # Əgər ekranda kod xanası varsa və istifadəçi hələ kod yazmayıbsa
+                            if not st.session_state.need_code:
+                                st.session_state.need_code = True
+                                st.rerun()  # Səhifəni yeniləyirik ki, kod xanası ekranda görünsün
                         
+                        # İstifadəçi kodu yazıb düyməyə basıbsa, brauzerə ötürürük
                             if len(insta_kod) == 6:
                                 code_inputs[0].send_keys(insta_kod)
                                 time.sleep(1)
                             
-                            # Continue düyməsini sıxırıq
+                            # Continue (Davam et) düyməsini sıxırıq
                                 continue_btn = driver.find_element(By.XPATH, "//div[@role='button'][@aria-label='Continue']")
                                 continue_btn.click()
-                                time.sleep(5)
+                                time.sleep(5)  # Girişin tamamlanmasını gözləyirik
                     
-                    # Profil səhifəsinə yönləndirmə
+                    # 3. Profil Səhifəsinə Keçid və Sessiyanın Götürülməsi
                         driver.get(f'https://www.instagram.com/{insta_adi}/')
                         time.sleep(3)
                     
-                    # Selenium-da kuki və sessiya məlumatlarını götürürük
+                    # Sessiya məlumatlarını (Cookies) əldə edirik
                         cookies = driver.get_cookies()
-                    
-                    # Sizin metodunuza uyğun formata salırıq
                         data = {"cookies": cookies}
+                    
+                    # Sizin məlumat bazasına yazma metodunuz
                         hesab_elave_et({"Instagram": data})
                     
                         st.success("Hesab uğurla inteqrasiya edildi.")
-                        st.session_state.need_code = False
+                        st.session_state.need_code = False  # Proses bitdiyi üçün sıfırlayırıq
                     
                     except Exception as e:
                         st.error(f"Xəta baş verdi: {str(e)}")
                     finally:
-                        driver.quit()  # Brauzeri hər bir halda bağlayırıq
+                        driver.quit()  # Brauzeri arxa fonda mütləq bağlayırıq
                 else:
                     st.error("Ad və şifrənizi yazın!")
                 
