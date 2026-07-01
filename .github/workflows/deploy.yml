@@ -1,0 +1,22 @@
+name: GelivyAI Server Deployment
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: self-hosted
+
+    steps:
+      - name: Kodu GitHub-dan cek
+        uses: actions/checkout@v4
+
+      - name: Kitabxanalari yenile
+        run: |
+          source venv/bin/activate
+          pip install -r requirements.txt
+
+      - name: Python Servisini Yeniden Baslat
+        run: sudo systemctl restart gelivyai.service
