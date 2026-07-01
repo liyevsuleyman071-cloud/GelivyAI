@@ -312,14 +312,14 @@ def email_kod_gonder(alici_email, kod):
 
 def hesab_elave_et(hesab={},id=""):
     metn=json.dumps(hesab)
-    with psycopg2.connect(st.secrets["DB_URL"]) as conn:
+    with psycopg2.connect(DB) as conn:
         with conn.cursor() as cursor:
             cursor.execute(
                 "UPDATE istifadeciler SET hesablar = %s WHERE id = %s",(metn,id)
             )
             conn.commit()
 
-with psycopg2.connect(st.secrets["DB_URL"]) as conn:
+with psycopg2.connect(DB) as conn:
     with conn.cursor() as cursor:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS istifadeciler (
@@ -363,7 +363,7 @@ if not user_full_name or not user_uuid:
             
             if giris_submit:
                 if giris_email and giris_sifre:
-                    with psycopg2.connect(st.secrets["DB_URL"]) as conn:
+                    with psycopg2.connect(DB) as conn:
                         with conn.cursor() as cursor:
                             cursor.execute(
                                 "SELECT ad_soyad, id FROM istifadeciler WHERE email = %s AND sifre = %s",
@@ -402,7 +402,7 @@ if not user_full_name or not user_uuid:
                         if q_sifre != q_sifre_tekrar:
                             st.error("❌ Daxil etdiyiniz şifrələr üst-üstə düşmür!")
                         else:
-                            with psycopg2.connect(st.secrets["DB_URL"]) as conn:
+                            with psycopg2.connect(DB) as conn:
                                 with conn.cursor() as cursor:
                                     if cihaz_iz != "unknown_device":
                                         cursor.execute("SELECT ad_soyad FROM istifadeciler WHERE cihaz_hash = %s", (cihaz_iz,))
@@ -447,7 +447,7 @@ if not user_full_name or not user_uuid:
                         istifadeci_unikal_id = str(uuid.uuid4())[:8] 
     
                         try:
-                            with psycopg2.connect(st.secrets["DB_URL"]) as conn:
+                            with psycopg2.connect(DB) as conn:
                                 with conn.cursor() as cursor:
                                     cursor.execute(
                     "INSERT INTO istifadeciler (id, ad_soyad, email, sifre, cihaz_hash) VALUES (%s, %s, %s, %s, %s)",
@@ -472,7 +472,7 @@ if not user_full_name or not user_uuid:
                 st.rerun()
 
 else:
-    with psycopg2.connect(st.secrets["DB_URL"]) as conn:
+    with psycopg2.connect(DB) as conn:
         with conn.cursor() as cursor:
             cursor.execute("SELECT balans FROM istifadeciler WHERE id = %s", (user_uuid,))
             istifadeci_balansi = cursor.fetchone()
