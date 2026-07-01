@@ -15,7 +15,8 @@ jobs:
 
       - name: Kitabxanalari yenile
         run: |
-          source venv/bin/activate
+          # venv mühitini tam yolu ilə aktivləşdiriri
+          source /home/suleyman/my_server_project/venv/bin/activate
           pip install -r requirements.txt
 
       - name: Python Servisini Yeniden Baslat
