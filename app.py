@@ -22,11 +22,14 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.common.by import By
 import time
+from dotenv import load_dotenv
+load_dotenv()
 
 
 warnings.filterwarnings("ignore")
 logging.getLogger("streamlit").setLevel(logging.ERROR)
-
+API_KEY = os.getenv("API_KEY")
+DB=os.getenv("DB")
 st.set_page_config(page_title="Faberlic Assistant", page_icon="🛍️")
 collection=None
 
@@ -43,8 +46,8 @@ Uğur Strategiyan:
         self.prompt=prompt
         if "files" not in st.session_state:
             st.session_state.files = {}
-        self.api_key = st.secrets["API_KEY"]
-        with psycopg2.connect(st.secrets["DB_URL"]) as conn:            
+        self.api_key = API_KEY
+        with psycopg2.connect(DB) as conn:            
             with conn.cursor() as cursor:                                      
                 cursor.execute("""                                          
                     CREATE TABLE IF NOT EXISTS history (                    
@@ -67,7 +70,7 @@ Uğur Strategiyan:
     def load_chat_history(self):
         if not self.user_uuid:
             return []
-        with psycopg2.connect(st.secrets["DB_URL"]) as conn:
+        with psycopg2.connect(DB) as conn:
             with conn.cursor() as cursor:
                 cursor.execute("SELECT messages FROM history WHERE user_uuid = %s", (self.user_uuid,))
                 row = cursor.fetchone()
@@ -92,7 +95,7 @@ Uğur Strategiyan:
             elif isinstance(msg, AIMessage):
                 serializable_messages.append({"type": "ai", "content": msg.content})
 
-        with psycopg2.connect(st.secrets["DB_URL"]) as conn:
+        with psycopg2.connect(DB) as conn:
             with conn.cursor() as cursor:
                 cursor.execute("""
                     INSERT INTO history (user_uuid, messages) 
@@ -150,7 +153,7 @@ Uğur Strategiyan:
             result_text = ""
             info_text = ""
             llm_vision = ChatGroq(
-                api_key=st.secrets["API_KEY"],
+                api_key=API_KEY,
                 model="meta-llama/llama-4-scout-17b-16e-instruct",
                 temperature=0.3
             )
@@ -219,7 +222,7 @@ Uğur Strategiyan:
             clean_question = question.strip()
             search_query = f"%{clean_question}%" 
         
-            with psycopg2.connect(st.secrets["DB_URL"]) as conn:
+            with psycopg2.connect(DB) as conn:
                 with conn.cursor() as cursor:
                     # 1. Standart RAG Məlumat bazası
                     cursor.execute(
@@ -234,8 +237,6 @@ Uğur Strategiyan:
                             full_context += f"{row[0]}\n"
                         full_context += "\n"
 
-                    # 2. Faberlic Məhsul Bazası (AĞILLI VƏ DƏQİQ SQL SORĞUSU)
-                    # %s (yəni istifadəçinin sualı) daxilində artikul kodunun keçib-keçmədiyi yoxlanılır
                     product_sql = """
                         SELECT artikul, mehsul_adi, aciqlama, ilkin_qiymet, kataloq_qiymeti, anbar_qiymeti, saticilara_ozel_endirimli_qiymet, mehsul_bali 
                         FROM faberlic_mehsullar 
