@@ -10,18 +10,23 @@ jobs:
     runs-on: self-hosted
 
     steps:
-      - name: Kodu GitHub-dan cek
+      - name: Kodu DUZGUN qovluga cek
         uses: actions/checkout@v4
+        with:
+          path: /home/suleyman/my_server_project
 
       - name: Kitabxanalari yenile
         run: |
-          source /home/suleyman/my_server_project/venv/bin/activate
+          cd /home/suleyman/my_server_project
+          source venv/bin/activate
           pip install -r requirements.txt
 
-      - name: GitHub Secret-den API acari servere yaz
-        # GitHub-dakı gizli açarı götürüb serverdə avtomatik .env faylına yazır
+      - name: Butun acarlari tek bir .env faylina yaz
         run: |
-          echo "MY_SECRET_API_KEY=${{ secrets.API_KEY }}" > /home/suleyman/my_server_project/.env
-          echo "MY_SECOND_API_KEY=${{ secrets.DB }}" >> /home/suleyman/my_server_project/.env
+          echo "API_KEY=${{ secrets.API_KEY }}" > /home/suleyman/my_server_project/.env
+          echo "DB=${{ secrets.DB}}" >> /home/suleyman/my_server_project/.env
+          echo "GONDEREN_EMAIL=${{ secrets.GONDEREN_EMAIL }}" >> /home/suleyman/my_server_project/.env
+          echo "GONDEREN_SIFRE=${{ secrets.GONDEREN_SIFRE }}" >> /home/suleyman/my_server_project/.env
+
       - name: Python Servisini Yeniden Baslat
         run: sudo systemctl restart gelivyai.service
