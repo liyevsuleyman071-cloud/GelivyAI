@@ -293,8 +293,8 @@ else:
     cihaz_iz = f"{user_agent}_{screen_width}"
 
 def email_kod_gonder(alici_email, kod):
-    GÖNDƏRƏN_EMAIL = st.secrets.get("GÖNDƏRƏN_EMAIL", "gelivyai@gmail.com")
-    GÖNDƏRƏN_ŞİFRƏ = st.secrets.get("GÖNDƏRƏN_ŞİFRƏ", "cztb exil eopc eaaz") 
+    GÖNDƏRƏN_EMAIL = os.getenv("GÖNDƏRƏN_EMAIL", "gelivyai@gmail.com")
+    GÖNDƏRƏN_ŞİFRƏ = os.getenv("GÖNDƏRƏN_ŞİFRƏ", "cztb exil eopc eaaz") 
 
     SÖZÜMÜZ = f"Gelivy AI qeydiyyat təsdiq kodunuz: {kod}\n\nZəhmət olmasa bu kodu heç kimlə paylaşmayın."
     msg = MIMEText(SÖZÜMÜZ, 'plain', 'utf-8')
