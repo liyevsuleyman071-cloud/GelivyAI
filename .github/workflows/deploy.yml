@@ -23,23 +23,5 @@ jobs:
         run: |
           echo "MY_SECRET_API_KEY=${{ secrets.API_KEY }}" > /home/suleyman/my_server_project/.env
           echo "MY_SECOND_API_KEY=${{ secrets.DB }}" >> /home/suleyman/my_server_project/.env
-      - name: Streamlit ucun Servis Faylini Yenile
-        run: |
-          sudo bash -c "cat << 'EOF' > /etc/systemd/system/gelivyai.service
-          [Unit]
-          Description=GelivyAI Streamlit Server
-          After=network.target
-
-          [Service]
-          User=suleyman
-          WorkingDirectory=/home/suleyman/my_server_project
-          ExecStart=/home/suleyman/my_server_project/venv/bin/streamlit run main.py --server.port 8501 --server.address 0.0.0.0
-          Restart=always
-
-          [Install]
-          WantedBy=multi-user.target
-          EOF"
-          sudo systemctl daemon-reload
-
       - name: Python Servisini Yeniden Baslat
         run: sudo systemctl restart gelivyai.service
